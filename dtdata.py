@@ -13,7 +13,6 @@ def loadData(path, subset = -1):
     if(subset > 0):
         allFiles = allFiles[0:subset]
     data = []
-    debug = []
     for file in allFiles:
         print(file)
         with open(file, 'r') as f:
@@ -26,7 +25,7 @@ def normaliseAroundEntry(data):
     # remove the last 20 min of history from our data..
     data = data[:,0:-20]
     # normalise data to the ENTRY point
-    labels = labels - data[:,-1]
     for i in range(data.shape[0]):
-        data[i:] = data[i:] - data[i,-1]
+        labels[i] = labels[i] - data[i,-1]
+        data[i,] = (data[i,]/data[i,-1])
     return (data, labels)
