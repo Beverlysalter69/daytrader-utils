@@ -46,3 +46,5 @@ def toClasses(labels, num_classes):
     one_hot_targets = np.eye(num_classes)[targets]
     print(one_hot_targets)
     return one_hot_targets
+
+# TODO: make sure the above have equal size classes    

@@ -12,9 +12,9 @@ np.random.seed(90210)
 
 num_classes = 5
 batch_size = 128
-epochs = 20
+epochs = 200
 
-subset = 1005 # -1 to use the entire data set
+subset = -1 # -1 to use the entire data set
 
 path =r'/home/suroot/Documents/train/daytrader/ema-crossover' # path to data
 
