@@ -26,7 +26,7 @@ data = dt.loadData(path, subset)
 
 data = data[:,-99:-1]
 
-(data, labels) = dt.normaliseAroundEntry(data)
+(data, labels) = dt.centerAroundEntry(data)
 data = np.reshape(data, [data.shape[0], data.shape[1],1] )
 print(data.shape)
 
