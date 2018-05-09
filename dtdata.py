@@ -2,6 +2,7 @@ from functools import reduce
 import numpy as np
 import math
 import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
 from dateutil import parser
 from sklearn import preprocessing
 import glob
@@ -43,6 +44,7 @@ def toClasses(labels, num_classes):
     buckets = []
     for i in range(num_classes):        
         buckets.append(sorted[i*bsize])
+    print("buckets: " + str(buckets))
     targets = np.digitize(labels, buckets) - 1
     one_hot_targets = np.eye(num_classes)[targets]
     print(one_hot_targets)
@@ -67,4 +69,31 @@ def findStrangeRecords(path):
             if( math.fabs(check) >= 0.05):
                 print("strange values in file: " + file)
                 num_strange += 1
-    print("Found " + num_strange + " files with strange values.")
+    print("Found " + str(num_strange) + " files with strange values.")
+
+def plotTrainingExample(te):
+    plt.plot(range(len(te)),te)
+    plt.show()
+
+def cacheLoadData(path, num_classes, input_size):
+    cache = "/tmp/daytrader_"+str(input_size)+".npy"
+    labelsCache = "/tmp/daytrader_labels_"+str(input_size)+".npy"
+    if( not os.path.isfile(cache) ):
+        data = loadData(path)
+
+        (data, labels) = centerAroundEntry(data)
+        print(data.shape)
+        data_scaled = scale(data)
+        labels_classed = toClasses(labels, num_classes)
+
+        printLabelDistribution(labels_classed)
+
+        pca = PCA(n_components=input_size, svd_solver='full')
+        data_reduced = pca.fit_transform(data_scaled) 
+        np.save(cache, data_reduced)
+        np.save(labelsCache, labels_classed)
+        
+    data = np.load(cache)
+    labels_classed = np.load(labelsCache)
+    return (data, labels_classed)
+
