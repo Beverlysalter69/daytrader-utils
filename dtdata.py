@@ -38,9 +38,9 @@ def scale(data):
 
 def toClasses(labels, num_classes):
     sorted = np.sort(np.array(labels, copy=True))
-    bsize = math.floor(len(sorted) / (num_classes+1) )
+    bsize = math.floor( len(sorted) / num_classes )
     buckets = []
-    for i in range(1, num_classes+1):        
+    for i in range(num_classes):        
         buckets.append(sorted[i*bsize])
     targets = np.digitize(labels, buckets) - 1
     one_hot_targets = np.eye(num_classes)[targets]
@@ -48,3 +48,7 @@ def toClasses(labels, num_classes):
     return one_hot_targets
 
 # TODO: make sure the above have equal size classes    
+def printLabelDistribution(x):
+    unq_rows, count = np.unique(x, axis=0, return_counts=1)
+    out = {tuple(i):j for i,j in zip(unq_rows,count)}
+    print(out)

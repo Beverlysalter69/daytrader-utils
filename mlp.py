@@ -25,6 +25,8 @@ print(data.shape)
 data_scaled = dt.scale(data)
 labels_classed = dt.toClasses(labels, num_classes)
 
+dt.printLabelDistribution(labels_classed)
+
 x_train, x_test, y_train, y_test = train_test_split(data_scaled, labels_classed, test_size=0.2)
 
 model = Sequential()

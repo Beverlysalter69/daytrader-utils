@@ -20,6 +20,8 @@ print(data.shape)
 
 a = dt.toClasses(labels, 5)
 
+dt.printLabelDistribution(a)
+
 #data = data[:,-90:-1]
 
 #plt.hist(data, bins='auto')  # arguments are passed to np.histogram
