@@ -8,6 +8,7 @@ import glob
 import os
 import csv
 import json
+import math
 
 
 def loadData(path, subset = -1):        
@@ -46,9 +47,24 @@ def toClasses(labels, num_classes):
     one_hot_targets = np.eye(num_classes)[targets]
     print(one_hot_targets)
     return one_hot_targets
-
-# TODO: make sure the above have equal size classes    
+    
 def printLabelDistribution(x):
     unq_rows, count = np.unique(x, axis=0, return_counts=1)
     out = {tuple(i):j for i,j in zip(unq_rows,count)}
     print(out)
+    return out
+
+
+def findStrangeRecords(path):        
+    allFiles = glob.glob(os.path.join(path, "data_*.csv"))
+    num_strange = 0
+    for file in allFiles:
+        with open(file, 'r') as f:
+            data = np.array( [float(x[1]) for x in list(csv.reader(f))] )   
+            label =  labels = data[-1]
+            data = data[0:-20]
+            check = (label/data[-1]) - 1.0
+            if( math.fabs(check) >= 0.05):
+                print("strange values in file: " + file)
+                num_strange += 1
+    print("Found " + num_strange + " files with strange values.")
