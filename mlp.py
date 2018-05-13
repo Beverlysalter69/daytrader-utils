@@ -7,16 +7,16 @@ from keras.models import Sequential
 from keras.layers import Dense, Activation, Dropout
 from keras.optimizers import RMSprop, Adam
 from keras.callbacks import ModelCheckpoint
-
+from keras import regularizers
 
 # fix random seed for reproducibility
 np.random.seed(90210)
 
 num_classes = 5
 batch_size = 256
-epochs = 500
+epochs = 7500
 
-input_size = 512
+input_size = 2000
 
 subset = -1 # -1 to use the entire data set
 
@@ -26,10 +26,10 @@ path =r'/home/suroot/Documents/train/daytrader/ema-crossover' # path to data
 x_train, x_test, y_train, y_test = train_test_split(data, labels_classed, test_size=0.1)
 
 model = Sequential()
-model.add(Dense(128, activation='relu', input_dim=input_size))
+model.add(Dense(128, activation='relu', input_dim=data.shape[1], kernel_regularizer=regularizers.l2(0.01)))
+model.add(Dropout(0.2))
+model.add(Dense(64, activation='relu', kernel_regularizer=regularizers.l2(0.01)))
 model.add(Dropout(0.4))
-model.add(Dense(64, activation='relu'))
-model.add(Dropout(0.5))
 model.add(Dense(num_classes, activation='softmax'))
 
 model.summary()

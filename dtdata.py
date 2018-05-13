@@ -10,6 +10,7 @@ import os
 import csv
 import json
 import math
+import sys
 
 
 def loadData(path, subset = -1):        
@@ -37,6 +38,15 @@ def centerAroundEntry(data):
 def scale(data):
     return preprocessing.scale(data)
 
+def filterOutliers(data, labels, pos, neg):
+    filteredData = []
+    filteredLabels = []
+    for i in range(data.shape[0]):
+        if(labels[i] > neg and labels[i] < pos):
+            filteredData.append(data[i,])
+            filteredLabels.append(labels[i])        
+    return (np.array(filteredData), np.array(filteredLabels) )
+
 
 def toClasses(labels, num_classes):
     sorted = np.sort(np.array(labels, copy=True))
@@ -57,25 +67,11 @@ def printLabelDistribution(x):
     return out
 
 
-def findStrangeRecords(path):        
-    allFiles = glob.glob(os.path.join(path, "data_*.csv"))
-    num_strange = 0
-    for file in allFiles:
-        with open(file, 'r') as f:
-            data = np.array( [float(x[1]) for x in list(csv.reader(f))] )   
-            label =  labels = data[-1]
-            data = data[0:-20]
-            check = (label/data[-1]) - 1.0
-            if( math.fabs(check) >= 0.05):
-                print("strange values in file: " + file)
-                num_strange += 1
-    print("Found " + str(num_strange) + " files with strange values.")
-
 def plotTrainingExample(te):
     plt.plot(range(len(te)),te)
     plt.show()
 
-def cacheLoadData(path, num_classes, input_size):
+def cacheLoadData(path, num_classes, input_size ):
     cache = "/tmp/daytrader_"+str(input_size)+".npy"
     labelsCache = "/tmp/daytrader_labels_"+str(input_size)+".npy"
     if( not os.path.isfile(cache) ):
@@ -88,11 +84,14 @@ def cacheLoadData(path, num_classes, input_size):
 
         printLabelDistribution(labels_classed)
 
-        pca = PCA(n_components=input_size, svd_solver='full')
-        data_reduced = pca.fit_transform(data_scaled) 
-        np.save(cache, data_reduced)
-        np.save(labelsCache, labels_classed)
-        
+        if(input_size > 0):
+            pca = PCA(n_components=input_size, svd_solver='full')
+            data_reduced = pca.fit_transform(data_scaled) 
+            np.save(cache, data_reduced)
+            np.save(labelsCache, labels_classed)
+        else:
+            np.save(cache, data_scaled)
+            np.save(labelsCache, labels_classed)
     data = np.load(cache)
     labels_classed = np.load(labelsCache)
     return (data, labels_classed)
