@@ -58,7 +58,7 @@ decoder = Model(encoded_input, decoder_layer(encoded_input))
 
 # checkpoint
 modelPath= savePath+"autoencoder.hdf5"
-checkpoint = ModelCheckpoint(modelPath, monitor='test_acc', verbose=1, save_best_only=True, mode='max')
+checkpoint = ModelCheckpoint(modelPath, monitor='acc', verbose=2, save_best_only=True, mode='max')
 
 history = autoencoder.fit(x_train, x_train,
                     batch_size=batch_size,
@@ -71,9 +71,9 @@ history = autoencoder.fit(x_train, x_train,
 
 # encode and decode some digits
 # note that we take them from the *test* set
-encoded_ts = encoder.predict(x_test)
+encoded_ts = encoder.predict(x_train)
 decoded_ts = decoder.predict(encoded_ts)
 
 for i in range(data.shape[0]):
-    dt.plotTrainingExample(x_test[i,:])
+    dt.plotTrainingExample(x_train[i,:])
     dt.plotTrainingExample(decoded_ts[i,:])
