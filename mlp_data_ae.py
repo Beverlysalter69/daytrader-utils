@@ -16,19 +16,25 @@ num_classes = 5
 batch_size = 256
 epochs = 7500
 
-input_size = 128
+input_size = 256
 
 subset = -1 # -1 to use the entire data set
 
 savePath = r'/home/suroot/Documents/train/daytrader/'
-path =r'/home/suroot/Documents/train/daytrader/ema-crossover' # path to data
-(data, labels_classed) = dt.cacheLoadData(path, num_classes, input_size)
-ss = StratifiedShuffleSplit(test_size=0.1)
+path =r'/home/suroot/Documents/train/daytrader/encoder-'+str(input_size)+'.npy' # path to data
+
+
+(data, labels_classed) = dt.cacheLoadData(path, num_classes, -1) # just to load labels
+data = np.load(path)
+
+ss = StratifiedShuffleSplit(n_splits=1, test_size=0.1)
 for train_index, test_index in ss.split(data, labels_classed):
     print("TRAIN:", train_index, "TEST:", test_index)
     x_train, x_test = data[train_index], data[test_index]
     y_train, y_test = labels_classed[train_index], labels_classed[test_index]
-#x_train, x_test, y_train, y_test = ss.split(data, labels_classed)
+
+
+dt.plotTrainingExample(x_train[15,:])
 
 model = Sequential()
 model.add(Dense(128, activation='relu', input_dim=data.shape[1], kernel_regularizer=regularizers.l2(0.01)))
