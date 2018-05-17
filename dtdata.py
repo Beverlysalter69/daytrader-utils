@@ -4,7 +4,7 @@ import math
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 from dateutil import parser
-from sklearn import preprocessing
+from sklearn.preprocessing import StandardScaler
 import glob
 import os
 import csv
@@ -24,19 +24,18 @@ def loadData(path, subset = -1):
             data.append( [float(x[1]) for x in list(csv.reader(f))] )   
     return np.array(data)
 
-def centerAroundEntry(data):
+def centerAroundEntry(data, crop_future):
     # extract the price at 20 min after entry
-    labels = data[:,-1]
+    labels = np.copy(data[:,-1])
     # remove the last 20 min of history from our data..
-    data = data[:,0:-20]
+    if crop_future < 0:
+        data = data[:,0:crop_future]
     # normalise data to the ENTRY point
     for i in range(data.shape[0]):
         labels[i] = (labels[i]/data[i,-1]) - 1.0
         data[i,] = (data[i,]/data[i,-1]) - 1.0
     return (data, labels)
 
-def scale(data):
-    return preprocessing.scale(data)
 
 def filterOutliers(data, labels, pos, neg):
     filteredData = []
@@ -71,15 +70,16 @@ def plotTrainingExample(te):
     plt.plot(range(len(te)),te)
     plt.show()
 
-def cacheLoadData(path, num_classes, input_size ):
-    cache = "/tmp/daytrader_"+str(input_size)+".npy"
+def cacheLoadData(path, crop_future, num_classes, input_size, scaler = StandardScaler() ):
+    cache = "/tmp/daytrader_"+str(input_size)+"-"+str(crop_future)+".npy"
     labelsCache = "/tmp/daytrader_labels_"+str(input_size)+".npy"
     if( not os.path.isfile(cache) ):
         data = loadData(path)
 
-        (data, labels) = centerAroundEntry(data)
+        (data, labels) = centerAroundEntry(data, crop_future)
         print(data.shape)
-        data_scaled = scale(data)
+        data_scaled = scaler.fit_transform(data)        
+
         labels_classed = toClasses(labels, num_classes)
 
         printLabelDistribution(labels_classed)
@@ -94,7 +94,7 @@ def cacheLoadData(path, num_classes, input_size ):
             np.save(labelsCache, labels_classed)
     data = np.load(cache)
     labels_classed = np.load(labelsCache)
-    return (data, labels_classed)
+    return (data, labels_classed, scaler)
 
 
 def plotHistory(history):

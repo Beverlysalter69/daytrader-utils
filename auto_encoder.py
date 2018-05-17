@@ -15,15 +15,16 @@ np.random.seed(90210)
 
 num_classes = 5
 batch_size = 256
-epochs = 1000
+epochs = 2500
 
 input_size = -1
+crop_future = 0
 
 subset = -1 # -1 to use the entire data set
 
 savePath = r'/home/suroot/Documents/train/daytrader/'
 path =r'/home/suroot/Documents/train/daytrader/ema-crossover' # path to data
-(data, labels_classed) = dt.cacheLoadData(path, num_classes, input_size)
+(data, labels_classed, _) = dt.cacheLoadData(path, crop_future, num_classes, input_size)
 
 x_train = data
 y_train = labels_classed
@@ -35,7 +36,7 @@ y_train = labels_classed
 
 
 # this is the size of our encoded representations
-encoding_dim = 32 
+encoding_dim = 484 
 
 # this is our input placeholder
 input = Input(shape=(data.shape[1],))
@@ -61,7 +62,7 @@ decoder_layer = autoencoder.layers[-1]
 decoder = Model(encoded_input, decoder_layer(encoded_input))
 
 # checkpoint
-modelPath= savePath+"autoencoder.hdf5"
+modelPath= savePath+"autoencoder-"+str(encoding_dim)+".hdf5"
 checkpoint = ModelCheckpoint(modelPath, monitor='acc', verbose=2, save_best_only=True, mode='max')
 
 history = autoencoder.fit(x_train, x_train,

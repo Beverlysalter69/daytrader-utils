@@ -19,7 +19,7 @@ path =r'/home/suroot/Documents/train/daytrader/ema-crossover' # path to data
 
 data = dt.loadData(path, subset)
 
-(data, labels) = dt.centerAroundEntry(data)
+(data, labels) = dt.centerAroundEntry(data, -20)
 print(data.shape)
 
 print(np.sort(labels))

@@ -40,7 +40,7 @@ dt.plotTrainingExample(data[-5,:])
 dt.plotTrainingExample(data[-6,:])
 
 '''
-(data, labels) = dt.centerAroundEntry(data)
+(data, labels) = dt.centerAroundEntry(data, -20)
 print(data.shape)
 
 print(np.sort(labels))
