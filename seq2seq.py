@@ -3,6 +3,7 @@ import os
 import math
 import dtdata as dt
 from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
 from keras.models import Model
 from keras.layers import Dense, Activation, Dropout, Input
 from keras.models import load_model
@@ -71,15 +72,16 @@ def generate_train_samples(x, batch, batch_size = 10, input_seq_len = input_seq_
     return np.array(input_seq), np.array(output_seq)
 
 # TRAINING PROCESS
-epochs = 1
+x_train, x_test, _, _ = train_test_split(data, data[:,-1], test_size=0.2)
+
+epochs = 5
 batch_size = 32
-total_iteractions = int(math.floor(data.shape[0] / batch_size))
+total_iteractions = int(math.floor(x_train.shape[0] / batch_size))
 KEEP_RATE = 0.5
 train_losses = []
 val_losses = []
 
-train_data_x = data
-
+print("building model..")
 rnn_model = build_graph(input_seq_len = input_seq_len, output_seq_len = output_seq_len, hidden_dim=hidden_dim, feed_previous=False)
 saver = tf.train.Saver()
 
@@ -89,13 +91,33 @@ with tf.Session() as sess:
     sess.run(init)
     for epoch in range(epochs):        
         for i in range(total_iteractions):        
-            batch_input, batch_output = generate_train_samples(x = data, batch=i, batch_size=batch_size)
+            batch_input, batch_output = generate_train_samples(x = x_train, batch=i, batch_size=batch_size)
             feed_dict = {rnn_model['enc_inp'][t]: batch_input[:,t].reshape(-1,input_dim) for t in range(input_seq_len)}
             feed_dict.update({rnn_model['target_seq'][t]: batch_output[:,t].reshape(-1,output_dim) for t in range(output_seq_len)})
             _, loss_t = sess.run([rnn_model['train_op'], rnn_model['loss']], feed_dict)
             print(loss_t)
             
         temp_saver = rnn_model['saver']()
-        save_path = temp_saver.save(sess, os.path.join('./', 'univariate_ts_model0'))
+        save_path = temp_saver.save(sess, os.path.join(savePath, 'univariate_ts_model0'))
         
 print("Checkpoint saved at: ", save_path)
+
+
+'''
+test_seq_input = true_signal(train_data_x[-15:])
+
+rnn_model = build_graph(feed_previous=True)
+
+init = tf.global_variables_initializer()
+with tf.Session() as sess:
+
+    sess.run(init)
+    
+    saver = rnn_model['saver']().restore(sess, os.path.join('./', 'univariate_ts_model0'))
+    
+    feed_dict = {rnn_model['enc_inp'][t]: test_seq_input[t].reshape(1,1) for t in range(input_seq_len)}
+    feed_dict.update({rnn_model['target_seq'][t]: np.zeros([1, output_dim]) for t in range(output_seq_len)})
+    final_preds = sess.run(rnn_model['reshaped_outputs'], feed_dict)
+    
+    final_preds = np.concatenate(final_preds, axis = 1)
+'''
