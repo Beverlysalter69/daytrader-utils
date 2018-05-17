@@ -7,19 +7,20 @@ from sklearn.model_selection import train_test_split
 from keras.models import Model
 from keras.layers import Dense, Activation, Dropout, Input
 from keras.models import load_model
+import matplotlib.pyplot as plt
 from build_model_basic import * 
 
 ## Parameters
 learning_rate = 0.01
 lambda_l2_reg = 0.003  
 
-encoding_dim = 480 # TODO: change me to 484
+encoding_dim = 484
 
 original_seq_len = 2420
 
 ## Network Parameters
 # length of input signals
-input_seq_len = 476 
+input_seq_len = 480 
 # length of output signals
 output_seq_len = 4
 # size of LSTM Cell
@@ -81,43 +82,64 @@ KEEP_RATE = 0.5
 train_losses = []
 val_losses = []
 
-print("building model..")
-rnn_model = build_graph(input_seq_len = input_seq_len, output_seq_len = output_seq_len, hidden_dim=hidden_dim, feed_previous=False)
-saver = tf.train.Saver()
 
-init = tf.global_variables_initializer()
-with tf.Session() as sess:
 
-    sess.run(init)
-    for epoch in range(epochs):        
-        for i in range(total_iteractions):        
-            batch_input, batch_output = generate_train_samples(x = x_train, batch=i, batch_size=batch_size)
-            feed_dict = {rnn_model['enc_inp'][t]: batch_input[:,t].reshape(-1,input_dim) for t in range(input_seq_len)}
-            feed_dict.update({rnn_model['target_seq'][t]: batch_output[:,t].reshape(-1,output_dim) for t in range(output_seq_len)})
-            _, loss_t = sess.run([rnn_model['train_op'], rnn_model['loss']], feed_dict)
-            print(loss_t)
+
+if( not os.path.isfile( os.path.join(savePath, 'univariate_ts_model0.meta') ) ):
+    print("building model..")
+    rnn_model = build_graph(input_seq_len = input_seq_len, output_seq_len = output_seq_len, hidden_dim=hidden_dim, feed_previous=False)
+    saver = tf.train.Saver()
+    init = tf.global_variables_initializer()
+    with tf.Session() as sess:
+        sess.run(init)
+        for epoch in range(epochs):        
+            for i in range(total_iteractions):        
+                batch_input, batch_output = generate_train_samples(x = x_train, batch=i, batch_size=batch_size)
+                feed_dict = {rnn_model['enc_inp'][t]: batch_input[:,t].reshape(-1,input_dim) for t in range(input_seq_len)}
+                feed_dict.update({rnn_model['target_seq'][t]: batch_output[:,t].reshape(-1,output_dim) for t in range(output_seq_len)})
+                _, loss_t = sess.run([rnn_model['train_op'], rnn_model['loss']], feed_dict)
+                print(loss_t)
+                
+            temp_saver = rnn_model['saver']()
+            save_path = temp_saver.save(sess, os.path.join(savePath, 'univariate_ts_model0'))
             
-        temp_saver = rnn_model['saver']()
-        save_path = temp_saver.save(sess, os.path.join(savePath, 'univariate_ts_model0'))
-        
-print("Checkpoint saved at: ", save_path)
+    print("Checkpoint saved at: ", save_path)
+else:
+    print("using cached model...")
 
+print("x_test: " + str(x_test.shape))
+decoded_ts = decoder.predict(x_test)
+print("decoded_ts: "+ str(decoded_ts.shape))
 
-'''
-test_seq_input = true_signal(train_data_x[-15:])
+rnn_model = build_graph(input_seq_len = input_seq_len, output_seq_len = output_seq_len, hidden_dim=hidden_dim, feed_previous=True)
 
-rnn_model = build_graph(feed_previous=True)
+predictions = []
 
 init = tf.global_variables_initializer()
 with tf.Session() as sess:
-
     sess.run(init)
+    saver = rnn_model['saver']().restore(sess, os.path.join(savePath, 'univariate_ts_model0'))
     
-    saver = rnn_model['saver']().restore(sess, os.path.join('./', 'univariate_ts_model0'))
-    
-    feed_dict = {rnn_model['enc_inp'][t]: test_seq_input[t].reshape(1,1) for t in range(input_seq_len)}
-    feed_dict.update({rnn_model['target_seq'][t]: np.zeros([1, output_dim]) for t in range(output_seq_len)})
-    final_preds = sess.run(rnn_model['reshaped_outputs'], feed_dict)
-    
-    final_preds = np.concatenate(final_preds, axis = 1)
-'''
+    for i in range(len(x_test)):
+        test_seq_input = x_test[i,0:input_seq_len]
+        feed_dict = {rnn_model['enc_inp'][t]: test_seq_input[t].reshape(1,1) for t in range(input_seq_len)}
+        feed_dict.update({rnn_model['target_seq'][t]: np.zeros([1, output_dim]) for t in range(output_seq_len)})
+        final_preds = sess.run(rnn_model['reshaped_outputs'], feed_dict)
+        
+        final_preds = np.concatenate(final_preds, axis = 1)
+        print(final_preds)
+
+        predicted_ts = np.append(x_test[i,0:input_seq_len], final_preds.reshape(-1))
+        predicted_ts = np.reshape(predicted_ts, (1, 484))
+        predictions.append(predicted_ts)
+
+for predicted_ts in predictions:        
+    print(predicted_ts.shape)
+    predicted_decoded_ts = decoder.predict( predicted_ts )
+    print(predicted_decoded_ts.shape)
+    l1, = plt.plot(range(2400), decoded_ts[i,0:2400], label = 'Training truth')
+    l2, = plt.plot(range(2400, 2420), decoded_ts[i,2400:], 'y', label = 'Test truth')
+    l3, = plt.plot(range(2400, 2420), predicted_decoded_ts[0,2400:], 'r', label = 'Test predictions')
+    plt.legend(handles = [l1, l2, l3], loc = 'lower left')
+    plt.show()
+
