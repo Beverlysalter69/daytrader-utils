@@ -14,15 +14,15 @@ from build_model_basic import *
 learning_rate = 0.01
 lambda_l2_reg = 0.003  
 
-encoding_dim = 484
+encoding_dim = 121
 
 original_seq_len = 2420
 
 ## Network Parameters
 # length of input signals
-input_seq_len = 480 
+input_seq_len = 120 
 # length of output signals
-output_seq_len = 4
+output_seq_len = 1
 # size of LSTM Cell
 hidden_dim = 128 
 # num of input signals
@@ -39,6 +39,7 @@ autoencoder_path = "/home/suroot/Documents/train/daytrader/models/autoencoder-"+
 cache = "/home/suroot/Documents/train/daytrader/autoencoded-"+str(encoding_dim)+".npy"
 savePath = r'/home/suroot/Documents/train/daytrader/'
 path =r'/home/suroot/Documents/train/daytrader/ema-crossover' # path to data
+model_name = "single_ts_model0"
 
 # load auto encoder.. and encode the data..
 autoencoder = load_model(autoencoder_path)
@@ -49,7 +50,7 @@ encoded_input = Input(shape=(encoding_dim,))
 decoder_layer = autoencoder.layers[-1]
 decoder = Model(encoded_input, decoder_layer(encoded_input))
 
-use_cache = False
+use_cache = True
 
 if( not use_cache or not os.path.isfile(cache) ):
     data = dt.loadData(path)
@@ -75,19 +76,21 @@ def generate_train_samples(x, batch, batch_size = 10, input_seq_len = input_seq_
     return np.array(input_seq), np.array(output_seq)
 
 # TRAINING PROCESS
-x_train, x_test, _, _ = train_test_split(data, data[:,-1], test_size=0.1)
+x_train, x_test, _, _ = train_test_split(data, np.zeros( (data.shape[0], 1) ), test_size=0.1, random_state=90210)
 
-epochs = 250
-batch_size = 64
+print("x_test: " + str(x_test.shape))
+decoded_ts = decoder.predict(x_test)
+print("decoded_ts: "+ str(decoded_ts.shape))
+
+epochs = 50
+batch_size = 128
 total_iteractions = int(math.floor(x_train.shape[0] / batch_size))
 KEEP_RATE = 0.5
 train_losses = []
 val_losses = []
 
 
-
-
-if( not os.path.isfile( os.path.join(savePath, 'univariate_ts_model0.meta') ) ):
+if( not os.path.isfile( os.path.join(savePath, model_name+'.meta') ) ):
     print("building model..")
     rnn_model = build_graph(input_seq_len = input_seq_len, output_seq_len = output_seq_len, hidden_dim=hidden_dim, feed_previous=False)
     saver = tf.train.Saver()
@@ -104,15 +107,12 @@ if( not os.path.isfile( os.path.join(savePath, 'univariate_ts_model0.meta') ) ):
                 print(loss_t)
                 
             temp_saver = rnn_model['saver']()
-            save_path = temp_saver.save(sess, os.path.join(savePath, 'univariate_ts_model0'))
+            save_path = temp_saver.save(sess, os.path.join(savePath, model_name))
             
     print("Checkpoint saved at: ", save_path)
 else:
     print("using cached model...")
 
-print("x_test: " + str(x_test.shape))
-decoded_ts = decoder.predict(x_test)
-print("decoded_ts: "+ str(decoded_ts.shape))
 
 rnn_model = build_graph(input_seq_len = input_seq_len, output_seq_len = output_seq_len, hidden_dim=hidden_dim, feed_previous=True)
 
@@ -121,7 +121,7 @@ predictions = []
 init = tf.global_variables_initializer()
 with tf.Session() as sess:
     sess.run(init)
-    saver = rnn_model['saver']().restore(sess, os.path.join(savePath, 'univariate_ts_model0'))
+    saver = rnn_model['saver']().restore(sess, os.path.join(savePath, model_name))
     
     for i in range(len(x_test)):
         test_seq_input = x_test[i,0:input_seq_len]
@@ -130,22 +130,30 @@ with tf.Session() as sess:
         final_preds = sess.run(rnn_model['reshaped_outputs'], feed_dict)
         
         final_preds = np.concatenate(final_preds, axis = 1)
-        print(final_preds)
+        print(str(final_preds) + " <=> " + str(x_test[i,input_seq_len:]) )
 
-        predicted_ts = np.append(x_test[i,0:input_seq_len], final_preds.reshape(-1))
+        predicted_ts = np.copy( x_test[i,0:input_seq_len] )
+        print(predicted_ts.shape)
+        predicted_ts = np.append( predicted_ts, final_preds.reshape(-1))
         predicted_ts = np.reshape(predicted_ts, (1, encoding_dim))
+        print(predicted_ts.shape)
         predictions.append(predicted_ts)
 
+
+
 for i in range(len(x_test)):
-    predicted_ts = predictions[i]       
+    predicted_ts = predictions[i]
     print(predicted_ts.shape)
     predicted_decoded_ts = decoder.predict( predicted_ts )
-    #predicted_decoded_ts = scaler.inverse_transform(decoded_ts)
-    #decoded_ts = scaler.inverse_transform(decoded_ts)
     print(predicted_decoded_ts.shape)
-    l1, = plt.plot(range(2400), decoded_ts[i,0:2400], label = 'Training truth')
-    l2, = plt.plot(range(2400, 2420), decoded_ts[i,2400:], 'y', label = 'Test truth')
-    l3, = plt.plot(range(2400, 2420), predicted_decoded_ts[0,2400:], 'r', label = 'Test predictions')
-    plt.legend(handles = [l1, l2, l3], loc = 'lower left')
+    print("----------------------------------")
+    print(decoded_ts[i,2418:])
+    print(predicted_decoded_ts[0,2418:])
+    l1, = plt.plot(range(2420), decoded_ts[i,:], label = 'Truth')
+    l2, = plt.plot(range(2400,2420), predicted_decoded_ts[0,2400:], 'r', label = 'Pred')
+    #l2, = plt.plot(range(2418,2420), decoded_ts[i,2418:], 'yo', label = 'Test truth')
+    #l3, = plt.plot(range(2418,2420), predicted_decoded_ts[0,2418:], 'ro', label = 'Test predictions')
+    #plt.legend(handles = [l1, l3, l2], loc = 'lower left')
+    plt.legend(handles = [l1, l2], loc = 'lower left')
     plt.show()
 

@@ -26,8 +26,10 @@ savePath = r'/home/suroot/Documents/train/daytrader/'
 path =r'/home/suroot/Documents/train/daytrader/ema-crossover' # path to data
 (data, labels_classed, _) = dt.cacheLoadData(path, crop_future, num_classes, input_size)
 
+# TRAINING PROCESS
+x_train, x_test, _, _ = train_test_split(data, np.zeros( (data.shape[0], 1) ), test_size=0.1, random_state=90210)
+
 x_train = data
-y_train = labels_classed
 
 # visualize some data from training
 #dt.plotTrainingExample(data[50,:])
@@ -36,7 +38,7 @@ y_train = labels_classed
 
 
 # this is the size of our encoded representations
-encoding_dim = 484 
+encoding_dim = 121 
 
 # this is our input placeholder
 input = Input(shape=(data.shape[1],))
@@ -45,6 +47,10 @@ input = Input(shape=(data.shape[1],))
 #encoded = Dense(1024, activation='relu')(encoded)
 #encoded = Dense(512, activation='relu')(input)
 encoded = Dense(encoding_dim, activation='relu')(input)
+#TODO: add a regularizer term here: https://towardsdatascience.com/applied-deep-learning-part-3-autoencoders-1c083af4d798
+
+
+
 # "decoded" is the lossy reconstruction of the input
 #decoded = Dense(128, activation='relu')(encoded)
 #decoded = Dense(512, activation='relu')(encoded)
