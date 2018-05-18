@@ -12,6 +12,7 @@ from build_model_basic import *
 
 ## Parameters
 random_seed = 90210
+num_classes = 5
 np.random.seed(random_seed)
 learning_rate = 0.01
 lambda_l2_reg = 0.003  
@@ -142,8 +143,7 @@ with tf.Session() as sess:
         
         final_preds = np.concatenate(final_preds, axis = 1)
         print(str(final_preds) + " <=> " + str(x_test[i,input_seq_len:]) )
-        print("***")
-        
+        print("***")        
 
         predicted_ts = np.copy( x_test[i,0:input_seq_len] )
         predicted_ts = np.append( predicted_ts, final_preds.reshape(-1))
@@ -155,6 +155,32 @@ with tf.Session() as sess:
 
 
 decoded_ts = scaler.inverse_transform(decoded_ts)
+
+
+buckets = dt.labelBuckets(x_test_center[:,-1], num_classes)
+print("BUCKETS: " + str(buckets))
+targets = np.digitize(x_test_center[:,-1], buckets) - 1
+one_hot_targets = np.eye(num_classes)[targets]
+print(one_hot_targets)
+
+decoded_predictions = decoder.predict(  np.reshape(np.array(predictions), (hold_out, encoding_dim) ) )
+decoded_predictions = scaler.inverse_transform(decoded_predictions)
+predicted_targets = np.digitize(decoded_predictions[:,-1], buckets) - 1
+predicted_one_hot_targets =  np.eye(num_classes)[predicted_targets]
+print(predicted_one_hot_targets)
+
+right = 0
+for i in range(predicted_one_hot_targets.shape[0]):
+    a1 = one_hot_targets[i]
+    a2 = predicted_one_hot_targets[i]
+    if np.array_equal(a1, a2):
+        right += 1
+
+print("ACC: " + str(right/hold_out) )
+
+
+
+
 
 
 for i in range(len(x_test_center)):

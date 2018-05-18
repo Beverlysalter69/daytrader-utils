@@ -50,17 +50,24 @@ def filterOutliers(data, labels, pos, neg):
     return (np.array(filteredData), np.array(filteredLabels) )
 
 
-def toClasses(labels, num_classes):
+def labelBuckets(labels, num_classes):
     sorted = np.sort(np.array(labels, copy=True))
     bsize = math.floor( len(sorted) / num_classes )
     buckets = []
     for i in range(num_classes):        
         buckets.append(sorted[i*bsize])
+    return buckets
+
+def toClasses(labels, num_classes):
+    buckets = labelBuckets(labels, num_classes)
     print("buckets: " + str(buckets))
     targets = np.digitize(labels, buckets) - 1
     one_hot_targets = np.eye(num_classes)[targets]
     print(one_hot_targets)
     return one_hot_targets
+
+
+
     
 def printLabelDistribution(x):
     unq_rows, count = np.unique(x, axis=0, return_counts=1)

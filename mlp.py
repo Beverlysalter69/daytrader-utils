@@ -15,6 +15,7 @@ np.random.seed(90210)
 num_classes = 5
 batch_size = 256
 epochs = 7500
+crop_future = -20
 
 input_size = 128
 
@@ -22,7 +23,7 @@ subset = -1 # -1 to use the entire data set
 
 savePath = r'/home/suroot/Documents/train/daytrader/'
 path =r'/home/suroot/Documents/train/daytrader/ema-crossover' # path to data
-(data, labels_classed) = dt.cacheLoadData(path, num_classes, input_size)
+(data, labels_classed) = dt.cacheLoadData(path, epochs, num_classes, input_size)
 ss = StratifiedShuffleSplit(test_size=0.1)
 for train_index, test_index in ss.split(data, labels_classed):
     print("TRAIN:", train_index, "TEST:", test_index)
