@@ -50,14 +50,18 @@ encoded_input = Input(shape=(encoding_dim,))
 decoder_layer = autoencoder.layers[-1]
 decoder = Model(encoded_input, decoder_layer(encoded_input))
 
-use_cache = True
+use_cache = False
+
+centered_data = []
 
 if( not use_cache or not os.path.isfile(cache) ):
     data = dt.loadData(path)
     (data, labels) = dt.centerAroundEntry(data, 0)
+    centered_data = np.copy(data)    
     # scale data .. don't forget to stor the scaler weights as we will need them after.
     data = scaler.fit_transform(data) 
     print(data.shape)
+    
     
     # encode all of the data .. should now be of length 480    
     encoded_ts = encoder.predict(data)
@@ -67,6 +71,7 @@ if( not use_cache or not os.path.isfile(cache) ):
     # TODO: cache the scaler weights
 
 print("loading cached data")
+
 data = np.load(cache)
 print(data.shape)
 
@@ -77,9 +82,12 @@ def generate_train_samples(x, batch, batch_size = 10, input_seq_len = input_seq_
 
 # TRAINING PROCESS
 x_train, x_test, _, _ = train_test_split(data, np.zeros( (data.shape[0], 1) ), test_size=0.1, random_state=90210)
+x_train_center, x_test_center, _, _ = train_test_split(centered_data, np.zeros( (centered_data.shape[0], 1) ), test_size=0.1, random_state=90210)
+
+print(x_test_center.shape)
 
 print("x_test: " + str(x_test.shape))
-decoded_ts = decoder.predict(x_test)
+decoded_ts = decoder.predict(np.copy(x_test) )
 print("decoded_ts: "+ str(decoded_ts.shape))
 
 epochs = 50
@@ -131,25 +139,35 @@ with tf.Session() as sess:
         
         final_preds = np.concatenate(final_preds, axis = 1)
         print(str(final_preds) + " <=> " + str(x_test[i,input_seq_len:]) )
+        print("***")
+        
 
         predicted_ts = np.copy( x_test[i,0:input_seq_len] )
-        print(predicted_ts.shape)
         predicted_ts = np.append( predicted_ts, final_preds.reshape(-1))
         predicted_ts = np.reshape(predicted_ts, (1, encoding_dim))
-        print(predicted_ts.shape)
+
+        print(x_test[i,(input_seq_len-2):])
+        print(predicted_ts[0,(input_seq_len-2):])
         predictions.append(predicted_ts)
 
 
+decoded_ts = scaler.inverse_transform(decoded_ts)
 
-for i in range(len(x_test)):
+
+
+for i in range(len(x_test_center)):
     predicted_ts = predictions[i]
     print(predicted_ts.shape)
     predicted_decoded_ts = decoder.predict( predicted_ts )
     print(predicted_decoded_ts.shape)
+    predicted_decoded_ts = scaler.inverse_transform(predicted_decoded_ts)
     print("----------------------------------")
-    print(decoded_ts[i,2418:])
-    print(predicted_decoded_ts[0,2418:])
-    l1, = plt.plot(range(2420), decoded_ts[i,:], label = 'Truth')
+    #print(x_test_center[i,2398:])
+    #print(predicted_decoded_ts[0,2398:])
+    #print( x_test_center[i,:].shape)
+    print("entry: " + str(x_test_center[i,2400]) )
+    l1, = plt.plot(range(2420), x_test_center[i,:], label = 'Truth')
+    l3, = plt.plot(range(2420), decoded_ts[i,:], 'y', label = 'Decoded')
     l2, = plt.plot(range(2400,2420), predicted_decoded_ts[0,2400:], 'r', label = 'Pred')
     #l2, = plt.plot(range(2418,2420), decoded_ts[i,2418:], 'yo', label = 'Test truth')
     #l3, = plt.plot(range(2418,2420), predicted_decoded_ts[0,2418:], 'ro', label = 'Test predictions')
