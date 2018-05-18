@@ -11,11 +11,13 @@ import matplotlib.pyplot as plt
 from build_model_basic import * 
 
 ## Parameters
+random_seed = 90210
+np.random.seed(random_seed)
 learning_rate = 0.01
 lambda_l2_reg = 0.003  
 
 encoding_dim = 121
-
+hold_out = 350
 original_seq_len = 2420
 
 ## Network Parameters
@@ -56,13 +58,12 @@ centered_data = []
 
 if( not use_cache or not os.path.isfile(cache) ):
     data = dt.loadData(path)
-    (data, labels) = dt.centerAroundEntry(data, 0)
+    for i in range(data.shape[0]):
+        data[i,] = (data[i,]/data[i,-20]) - 1.0
     centered_data = np.copy(data)    
     # scale data .. don't forget to stor the scaler weights as we will need them after.
     data = scaler.fit_transform(data) 
-    print(data.shape)
-    
-    
+    print(data.shape)        
     # encode all of the data .. should now be of length 480    
     encoded_ts = encoder.predict(data)
     print(encoded_ts.shape)    
@@ -81,8 +82,10 @@ def generate_train_samples(x, batch, batch_size = 10, input_seq_len = input_seq_
     return np.array(input_seq), np.array(output_seq)
 
 # TRAINING PROCESS
-x_train, x_test, _, _ = train_test_split(data, np.zeros( (data.shape[0], 1) ), test_size=0.1, random_state=90210)
-x_train_center, x_test_center, _, _ = train_test_split(centered_data, np.zeros( (centered_data.shape[0], 1) ), test_size=0.1, random_state=90210)
+x_train = data[0:-hold_out, :]
+x_test = data[-hold_out:, :]
+x_train_center = centered_data[0:-hold_out, :]
+x_test_center = centered_data[-hold_out:, :]
 
 print(x_test_center.shape)
 
@@ -152,7 +155,6 @@ with tf.Session() as sess:
 
 
 decoded_ts = scaler.inverse_transform(decoded_ts)
-
 
 
 for i in range(len(x_test_center)):

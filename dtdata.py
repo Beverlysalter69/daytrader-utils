@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 from dateutil import parser
 from sklearn.preprocessing import StandardScaler
+from sklearn.utils import shuffle
 import glob
 import os
 import csv
@@ -18,7 +19,9 @@ def loadData(path, subset = -1):
     if(subset > 0):
         allFiles = allFiles[0:subset]
     data = []
-    for file in allFiles:
+    # NOTE: set np.random.seed for reproducability
+    shuffleFiles = shuffle(sorted(allFiles))
+    for file in shuffleFiles:
         print(file)
         with open(file, 'r') as f:
             data.append( [float(x[1]) for x in list(csv.reader(f))] )   
