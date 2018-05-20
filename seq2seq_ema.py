@@ -5,7 +5,8 @@ import dtdata as dt
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from keras.models import Model
-from keras.layers import Dense, Activation, Dropout, Input
+from keras.layers import Dense, Activation, Dropout, Input, LSTM
+from keras.callbacks import ModelCheckpoint
 from keras.models import load_model
 import matplotlib.pyplot as plt
 from build_model_basic import * 
@@ -14,44 +15,104 @@ from build_model_basic import *
 random_seed = 90210
 num_classes = 5
 np.random.seed(random_seed)
-learning_rate = 0.01
-lambda_l2_reg = 0.003  
+latent_dim = 256  # Latent dimensionality of the encoding space.
 
-encoding_dim = 121
+original_seq_len = 2400
+encoding_dim = 120
 hold_out = 350
-original_seq_len = 2420
+batch_size = 128
+epochs = 50
 
-## Network Parameters
-# length of input signals
-input_seq_len = 120 
-# length of output signals
-output_seq_len = 1
-# size of LSTM Cell
-hidden_dim = 128 
-# num of input signals
-input_dim = 1
-# num of output signals
-output_dim = 1
-# num of stacked lstm layers 
-num_stacked_layers = 2 
-# gradient clipping - to avoid gradient exploding
-GRADIENT_CLIPPING = 2.5
-
-scaler = StandardScaler() 
-autoencoder_path = "/home/suroot/Documents/train/daytrader/models/autoencoder-"+str(encoding_dim)+".hdf5"
-cache = "/home/suroot/Documents/train/daytrader/autoencoded-"+str(encoding_dim)+".npy"
 savePath = r'/home/suroot/Documents/train/daytrader/'
-path =r'/home/suroot/Documents/train/daytrader/ema-crossover' # path to data
-model_name = "single_ts_model0"
 
-# load auto encoder.. and encode the data..
-autoencoder = load_model(autoencoder_path)
-input = Input(shape=(original_seq_len,))
-encoder_layer = autoencoder.layers[-2]
-encoder = Model(input, encoder_layer(input))
-encoded_input = Input(shape=(encoding_dim,))
-decoder_layer = autoencoder.layers[-1]
-decoder = Model(encoded_input, decoder_layer(encoded_input))
+
+# load auto encoder.. for PAST data.
+autoencoder_past_path = "/home/suroot/Documents/train/daytrader/models/autoencoder-past-"+str(encoding_dim)+".hdf5"
+autoencoder_past = load_model(autoencoder_past_path)
+input_past = Input(shape=(original_seq_len,))
+encoder_past_layer = autoencoder_past.layers[-2]
+encoder_past = Model(input_past, encoder_past_layer(input_past))
+encoded_past_input = Input(shape=(encoding_dim,))
+decoder_past_layer = autoencoder_past.layers[-1]
+decoder_past = Model(encoded_past_input, decoder_past_layer(encoded_past_input))
+
+# load auto encoder.. for PAST data.
+autoencoder_future_path = "/home/suroot/Documents/train/daytrader/models/autoencoder-future-"+str(encoding_dim)+".hdf5"
+autoencoder_future = load_model(autoencoder_future_path)
+input_future = Input(shape=(original_seq_len,))
+encoder_future_layer = autoencoder_future.layers[-2]
+encoder_future = Model(input_future, encoder_future_layer(input_future))
+encoded_future_input = Input(shape=(encoding_dim,))
+decoder_future_layer = autoencoder_future.layers[-1]
+decoder_future = Model(encoded_future_input, decoder_future_layer(encoded_future_input))
+
+
+# Load our data...
+scaler = StandardScaler() 
+path =r'/home/suroot/Documents/train/daytrader/ema-crossover' # path to data
+data = dt.loadData(path)
+for i in range(data.shape[0]):
+    data[i,] = (data[i,]/data[i,-20]) - 1.0
+data = scaler.fit_transform(data) 
+print(data.shape)
+
+# get and encode PAST data..
+x_train_past = data[0:-hold_out,0:2400]
+print("past: " + str(x_train_past.shape))
+x_train_past_encoded = encoder_past.predict(x_train_past)
+print("past encoded: " + str(x_train_past_encoded.shape))
+
+# get and encode FUTURE data..
+x_train_future = data[0:-hold_out,20:2420]
+print("future: " + str(x_train_future.shape))
+x_train_future_encoded = encoder_future.predict(x_train_future)
+print("future encoded: " + str(x_train_future_encoded.shape))
+
+
+
+# Define an input sequence and process it.
+encoder_inputs = Input(shape=(None, 1))
+encoder = LSTM(latent_dim, return_state=True)
+encoder_outputs, state_h, state_c = encoder(encoder_inputs)
+# We discard `encoder_outputs` and only keep the states.
+encoder_states = [state_h, state_c]
+
+# Set up the decoder, using `encoder_states` as initial state.
+decoder_inputs = Input(shape=(None, 1))
+# We set up our decoder to return full output sequences,
+# and to return internal states as well. We don't use the
+# return states in the training model, but we will use them in inference.
+decoder_lstm = LSTM(latent_dim, return_sequences=True, return_state=True)
+decoder_outputs, _, _ = decoder_lstm(decoder_inputs,
+                                     initial_state=encoder_states)
+decoder_dense = Dense(1, activation='linear')
+decoder_outputs = decoder_dense(decoder_outputs)
+
+# Define the model that will turn
+# `encoder_input_data` & `decoder_input_data` into `decoder_target_data`
+model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
+
+model.summary()
+
+seq2seq_model_path = savePath + "/seq2seq_ema.hdf5"
+checkpoint = ModelCheckpoint(seq2seq_model_path, monitor='val_acc', verbose=2, save_best_only=True, mode='max')
+
+# Run training
+model.compile(optimizer='rmsprop', loss='sparse_categorical_crossentropy')
+x_train_past_encoded_lstm = np.reshape(x_train_past_encoded, (x_train_past_encoded.shape[0], x_train_past_encoded.shape[1], 1) )
+x_train_future_encoded_lstm = np.reshape(x_train_future_encoded, (x_train_future_encoded.shape[0], x_train_future_encoded.shape[1], 1) )
+x_train_future_encoded2 = x_train_future_encoded[:,1:]
+x_train_future_encoded2 = np.insert(x_train_future_encoded2, 0, 0, axis=1)
+x_train_future_encoded2_lstm = np.reshape(x_train_future_encoded2, (x_train_future_encoded2.shape[0], x_train_future_encoded2.shape[1], 1) )
+model.fit([x_train_past_encoded_lstm, x_train_future_encoded_lstm], x_train_future_encoded2_lstm,
+          batch_size=batch_size,
+          epochs=epochs,
+          callbacks=[checkpoint],
+          validation_split=0.2)
+
+
+
+'''
 
 use_cache = False
 
@@ -199,3 +260,4 @@ for i in range(len(x_test_center)):
     plt.legend(handles = [l1, l2], loc = 'lower left')
     plt.show()
 
+'''

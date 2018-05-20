@@ -5,7 +5,8 @@ import dtdata as dt
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from keras.models import Model
-from keras.layers import Dense, Activation, Dropout, Input
+from keras.layers import Dense, Activation, Dropout, Input, LSTM
+from keras.callbacks import ModelCheckpoint
 from keras.models import load_model
 import matplotlib.pyplot as plt
 from build_model_basic import * 
@@ -14,20 +15,67 @@ from build_model_basic import *
 random_seed = 90210
 num_classes = 5
 np.random.seed(random_seed)
-learning_rate = 0.01
-lambda_l2_reg = 0.003  
+latent_dim = 256  # Latent dimensionality of the encoding space.
 
-encoding_dim = 121
+original_seq_len = 2400
+encoding_dim = 120
 hold_out = 350
-original_seq_len = 2420
+batch_size = 128
+epochs = 50
+
+savePath = r'/home/suroot/Documents/train/daytrader/'
+
+
+# load auto encoder.. for PAST data.
+autoencoder_past_path = "/home/suroot/Documents/train/daytrader/models/autoencoder-past-"+str(encoding_dim)+".hdf5"
+autoencoder_past = load_model(autoencoder_past_path)
+input_past = Input(shape=(original_seq_len,))
+encoder_past_layer = autoencoder_past.layers[-2]
+encoder_past = Model(input_past, encoder_past_layer(input_past))
+encoded_past_input = Input(shape=(encoding_dim,))
+decoder_past_layer = autoencoder_past.layers[-1]
+decoder_past = Model(encoded_past_input, decoder_past_layer(encoded_past_input))
+
+# load auto encoder.. for PAST data.
+autoencoder_future_path = "/home/suroot/Documents/train/daytrader/models/autoencoder-future-"+str(encoding_dim)+".hdf5"
+autoencoder_future = load_model(autoencoder_future_path)
+input_future = Input(shape=(original_seq_len,))
+encoder_future_layer = autoencoder_future.layers[-2]
+encoder_future = Model(input_future, encoder_future_layer(input_future))
+encoded_future_input = Input(shape=(encoding_dim,))
+decoder_future_layer = autoencoder_future.layers[-1]
+decoder_future = Model(encoded_future_input, decoder_future_layer(encoded_future_input))
+
+
+# Load our data...
+scaler = StandardScaler() 
+path =r'/home/suroot/Documents/train/daytrader/ema-crossover' # path to data
+data = dt.loadData(path)
+for i in range(data.shape[0]):
+    data[i,] = (data[i,]/data[i,-20]) - 1.0
+data = scaler.fit_transform(data) 
+print(data.shape)
+
+# get and encode PAST data..
+x_train_past = data[0:-hold_out,0:2400]
+print("past: " + str(x_train_past.shape))
+x_train_past_encoded = encoder_past.predict(x_train_past)
+print("past encoded: " + str(x_train_past_encoded.shape))
+
+# get and encode FUTURE data..
+x_train_future = data[0:-hold_out,20:2420]
+print("future: " + str(x_train_future.shape))
+x_train_future_encoded = encoder_future.predict(x_train_future)
+print("future encoded: " + str(x_train_future_encoded.shape))
+
 
 ## Network Parameters
 # length of input signals
 input_seq_len = 120 
 # length of output signals
-output_seq_len = 1
+output_seq_len = 120
 # size of LSTM Cell
-hidden_dim = 128 
+hidden_dim = 256 
 # num of input signals
 input_dim = 1
 # num of output signals
@@ -36,22 +84,92 @@ output_dim = 1
 num_stacked_layers = 2 
 # gradient clipping - to avoid gradient exploding
 GRADIENT_CLIPPING = 2.5
+model_name = "seq2seq-ema"
 
-scaler = StandardScaler() 
-autoencoder_path = "/home/suroot/Documents/train/daytrader/models/autoencoder-"+str(encoding_dim)+".hdf5"
-cache = "/home/suroot/Documents/train/daytrader/autoencoded-"+str(encoding_dim)+".npy"
-savePath = r'/home/suroot/Documents/train/daytrader/'
-path =r'/home/suroot/Documents/train/daytrader/ema-crossover' # path to data
-model_name = "single_ts_model0"
 
-# load auto encoder.. and encode the data..
-autoencoder = load_model(autoencoder_path)
-input = Input(shape=(original_seq_len,))
-encoder_layer = autoencoder.layers[-2]
-encoder = Model(input, encoder_layer(input))
-encoded_input = Input(shape=(encoding_dim,))
-decoder_layer = autoencoder.layers[-1]
-decoder = Model(encoded_input, decoder_layer(encoded_input))
+
+def generate_train_samples(x, y, batch, batch_size = 10, input_seq_len = input_seq_len, output_seq_len = output_seq_len):        
+    input_seq =  x[batch*batch_size:(batch*batch_size)+batch_size, :]
+    output_seq = y[batch*batch_size:(batch*batch_size)+batch_size, :]
+    return np.array(input_seq), np.array(output_seq)
+
+epochs = 100
+batch_size = 128
+total_iteractions = int(math.floor(x_train_past_encoded.shape[0] / batch_size))
+KEEP_RATE = 0.5
+train_losses = []
+val_losses = []
+
+
+if( not os.path.isfile( os.path.join(savePath, model_name+'.meta') ) ):
+    print("building model..")
+    rnn_model = build_graph(input_seq_len = input_seq_len, output_seq_len = output_seq_len, hidden_dim=hidden_dim, feed_previous=False)
+    saver = tf.train.Saver()
+    init = tf.global_variables_initializer()
+    with tf.Session() as sess:
+        sess.run(init)
+        for epoch in range(epochs):        
+            print("EPOCH: " + str(epoch))
+            for i in range(total_iteractions):        
+                batch_input, batch_output = generate_train_samples(x = x_train_past_encoded, y=x_train_future_encoded, batch=i, batch_size=batch_size)
+                feed_dict = {rnn_model['enc_inp'][t]: batch_input[:,t].reshape(-1,input_dim) for t in range(input_seq_len)}
+                feed_dict.update({rnn_model['target_seq'][t]: batch_output[:,t].reshape(-1,output_dim) for t in range(output_seq_len)})
+                _, loss_t = sess.run([rnn_model['train_op'], rnn_model['loss']], feed_dict)
+                print(loss_t)
+                
+            temp_saver = rnn_model['saver']()
+            save_path = temp_saver.save(sess, os.path.join(savePath, model_name))
+            
+    print("Checkpoint saved at: ", save_path)
+else:
+    print("using cached model...")
+
+
+rnn_model = build_graph(input_seq_len = input_seq_len, output_seq_len = output_seq_len, hidden_dim=hidden_dim, feed_previous=False)
+
+
+x_test_past = data[-hold_out:, 0:2400]
+x_test_past_encoded = encoder_past.predict(x_test_past)
+
+predictions = []
+
+init = tf.global_variables_initializer()
+with tf.Session() as sess:
+    sess.run(init)
+    saver = rnn_model['saver']().restore(sess, os.path.join(savePath, model_name))
+    
+    for i in range(len(x_test_past)):
+        test_seq_input = x_test_past[i]
+        feed_dict = {rnn_model['enc_inp'][t]: test_seq_input[t].reshape(1,1) for t in range(input_seq_len)}
+        feed_dict.update({rnn_model['target_seq'][t]: np.zeros([1, output_dim]) for t in range(output_seq_len)})
+        final_preds = sess.run(rnn_model['reshaped_outputs'], feed_dict)
+        
+        final_preds = np.concatenate(final_preds, axis = 1)
+        print(str(final_preds))
+
+        predicted_ts = final_preds.reshape(-1)
+        predictions.append(predicted_ts)
+
+        
+        #print(str(final_preds) + " <=> " + str(x_test[i,input_seq_len:]) )
+        #print("***")        
+
+        #predicted_ts = np.copy( x_test[i,0:input_seq_len] )
+        #predicted_ts = np.append( predicted_ts, final_preds.reshape(-1))
+        #predicted_ts = np.reshape(predicted_ts, (1, encoding_dim))
+
+        #print(x_test[i,(input_seq_len-2):])
+        #print(predicted_ts[0,(input_seq_len-2):])
+        #predictions.append(predicted_ts)
+
+
+predicted = decoder_future.predict( final_preds )
+print(predicted.shape)
+l1, = plt.plot(range(2420), predicted, label = 'Predicted')
+plt.legend(handles = [l1], loc = 'lower left')
+plt.show()
+
+'''
 
 use_cache = False
 
@@ -199,3 +317,4 @@ for i in range(len(x_test_center)):
     plt.legend(handles = [l1, l2], loc = 'lower left')
     plt.show()
 
+'''
