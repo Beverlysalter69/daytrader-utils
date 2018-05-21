@@ -65,7 +65,7 @@ def generate_train_samples(x, batch, batch_size = 10, input_seq_len = input_seq_
 # TRAINING PROCESS
 x_train, x_test, _, _ = train_test_split(data, data[:,-1], test_size=0.1)
 
-epochs = 25
+epochs = 50
 batch_size = 32
 total_iteractions = int(math.floor(x_train.shape[0] / batch_size))
 KEEP_RATE = 0.5

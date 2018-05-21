@@ -124,12 +124,20 @@ if( not os.path.isfile( os.path.join(savePath, model_name+'.meta') ) ):
 else:
     print("using cached model...")
 
+x_test_past = data[-hold_out:, 0:2400]
+x_test_past_encoded = encoder_past.predict(x_test_past)
+
+x_test_future = data[-hold_out:, 20:2420]
+x_test_future_encoded = encoder_future.predict(x_test_future)
+
+l1, = plt.plot(range(120), x_test_past_encoded[22], label = 'past')
+l2, = plt.plot(range(1,121), x_test_future_encoded[22], "r", label = 'future')
+plt.legend(handles = [l1,l2], loc = 'lower left')
+plt.show()
+
 
 rnn_model = build_graph(input_seq_len = input_seq_len, output_seq_len = output_seq_len, hidden_dim=hidden_dim, feed_previous=False)
 
-
-x_test_past = data[-hold_out:, 0:2400]
-x_test_past_encoded = encoder_past.predict(x_test_past)
 
 predictions = []
 
@@ -148,7 +156,7 @@ with tf.Session() as sess:
         print(str(final_preds))
 
         predicted_ts = final_preds.reshape(-1)
-        predictions.append(predicted_ts)
+        predictions.append( predicted_ts )
 
         
         #print(str(final_preds) + " <=> " + str(x_test[i,input_seq_len:]) )
@@ -163,11 +171,13 @@ with tf.Session() as sess:
         #predictions.append(predicted_ts)
 
 
-predicted = decoder_future.predict( final_preds )
-print(predicted.shape)
-l1, = plt.plot(range(2420), predicted, label = 'Predicted')
-plt.legend(handles = [l1], loc = 'lower left')
-plt.show()
+for final_preds in predictions:
+    print(final_preds.shape)
+    predicted = decoder_future.predict( np.reshape(final_preds, (1, 120) ) )
+    print(predicted.shape)
+    l1, = plt.plot(range(2420), predicted, label = 'Predicted')
+    plt.legend(handles = [l1], loc = 'lower left')
+    plt.show()
 
 '''
 
