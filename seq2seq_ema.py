@@ -21,7 +21,7 @@ original_seq_len = 2400
 encoding_dim = 120
 hold_out = 350
 batch_size = 128
-epochs = 50
+epochs = 250
 
 savePath = r'/home/suroot/Documents/train/daytrader/'
 
@@ -68,52 +68,86 @@ print("future: " + str(x_train_future.shape))
 x_train_future_encoded = encoder_future.predict(x_train_future)
 print("future encoded: " + str(x_train_future_encoded.shape))
 
-
+seq2seq_model_path = savePath + "seq2seq_ema.hdf5"
 
 # Define an input sequence and process it.
-encoder_inputs = Input(shape=(None, 1))
-encoder = LSTM(latent_dim, return_state=True)
-encoder_outputs, state_h, state_c = encoder(encoder_inputs)
-# We discard `encoder_outputs` and only keep the states.
-encoder_states = [state_h, state_c]
+if( not os.path.isfile( seq2seq_model_path ) ):
+    encoder_inputs = Input(shape=(None, 1))
+    encoder = LSTM(latent_dim, return_state=True)
+    encoder_outputs, state_h, state_c = encoder(encoder_inputs)
+    # We discard `encoder_outputs` and only keep the states.
+    encoder_states = [state_h, state_c]
 
-# Set up the decoder, using `encoder_states` as initial state.
-decoder_inputs = Input(shape=(None, 1))
-# We set up our decoder to return full output sequences,
-# and to return internal states as well. We don't use the
-# return states in the training model, but we will use them in inference.
-decoder_lstm = LSTM(latent_dim, return_sequences=True, return_state=True)
-decoder_outputs, _, _ = decoder_lstm(decoder_inputs,
-                                     initial_state=encoder_states)
-decoder_dense = Dense(1, activation='linear')
-decoder_outputs = decoder_dense(decoder_outputs)
+    # Set up the decoder, using `encoder_states` as initial state.
+    decoder_inputs = Input(shape=(None, 1))
+    # We set up our decoder to return full output sequences,
+    # and to return internal states as well. We don't use the
+    # return states in the training model, but we will use them in inference.
+    decoder_lstm = LSTM(latent_dim, return_sequences=True, return_state=True)
+    decoder_outputs, _, _ = decoder_lstm(decoder_inputs, initial_state=encoder_states)
+    decoder_dense = Dense(1, activation='linear')
+    decoder_outputs = decoder_dense(decoder_outputs)
 
-# Define the model that will turn
-# `encoder_input_data` & `decoder_input_data` into `decoder_target_data`
-model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
+    # Define the model that will turn
+    # `encoder_input_data` & `decoder_input_data` into `decoder_target_data`
+    model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
+    model.summary()
+    
+    checkpoint = ModelCheckpoint(seq2seq_model_path, monitor='val_acc', verbose=2, save_best_only=True, mode='max')
 
-model.summary()
+    # Run training
+    model.compile(optimizer='rmsprop', loss='mean_absolute_error', metrics=['mae', 'acc'])
+    x_train_past_encoded_lstm = np.reshape(x_train_past_encoded, (x_train_past_encoded.shape[0], x_train_past_encoded.shape[1], 1) )
+    x_train_future_encoded_lstm = np.reshape(x_train_future_encoded, (x_train_future_encoded.shape[0], x_train_future_encoded.shape[1], 1) )
+    x_train_future_encoded2 = x_train_future_encoded[:,1:]
+    x_train_future_encoded2 = np.insert(x_train_future_encoded2, 0, 0, axis=1)
+    x_train_future_encoded2_lstm = np.reshape(x_train_future_encoded2, (x_train_future_encoded2.shape[0], x_train_future_encoded2.shape[1], 1) )
 
-seq2seq_model_path = savePath + "/seq2seq_ema.hdf5"
-checkpoint = ModelCheckpoint(seq2seq_model_path, monitor='val_acc', verbose=2, save_best_only=True, mode='max')
+    print("rarg")
+    print(x_train_future_encoded2_lstm.shape)
 
-# Run training
-model.compile(optimizer='rmsprop', loss='sparse_categorical_crossentropy')
-x_train_past_encoded_lstm = np.reshape(x_train_past_encoded, (x_train_past_encoded.shape[0], x_train_past_encoded.shape[1], 1) )
-x_train_future_encoded_lstm = np.reshape(x_train_future_encoded, (x_train_future_encoded.shape[0], x_train_future_encoded.shape[1], 1) )
-x_train_future_encoded2 = x_train_future_encoded[:,1:]
-x_train_future_encoded2 = np.insert(x_train_future_encoded2, 0, 0, axis=1)
-x_train_future_encoded2_lstm = np.reshape(x_train_future_encoded2, (x_train_future_encoded2.shape[0], x_train_future_encoded2.shape[1], 1) )
-model.fit([x_train_past_encoded_lstm, x_train_future_encoded_lstm], x_train_future_encoded2_lstm,
-          batch_size=batch_size,
-          epochs=epochs,
-          callbacks=[checkpoint],
-          validation_split=0.2)
+    model.fit([x_train_past_encoded_lstm, x_train_future_encoded_lstm], x_train_future_encoded2_lstm,
+            batch_size=batch_size,
+            epochs=epochs,
+            callbacks=[checkpoint],          
+            validation_split=0.2)
 
+model = load_model(seq2seq_model_path)
+predictions = []
+
+# get TEST and encode PAST data..
+x_test_past = data[0:hold_out,0:2400]
+print("test past: " + str(x_test_past.shape))
+x_test_past_encoded = encoder_past.predict(x_test_past)
+print("test past encoded: " + str(x_test_past_encoded.shape))
+
+# get TEST and encode FUTURE data..
+x_test_future = data[0:hold_out,20:2420]
+print("test future: " + str(x_test_future.shape))
+x_test_future_encoded = encoder_future.predict(x_test_future)
+print("test future encoded: " + str(x_test_future_encoded.shape))
+
+for i in range(len(x_test_past_encoded)):
+    test_seq_input = x_test_past_encoded[i]
+    prediction = model.predict(test_seq_input)
+    predictions.append(prediction)
+
+for i in range(len(x_test_past_encoded)):
+    predicted_ts = predictions[i]
+    print(predicted_ts.shape)
+    predicted_decoded_ts = decoder_future.predict( predicted_ts )
+    print(predicted_decoded_ts.shape)
+    predicted_decoded_ts = scaler.inverse_transform(predicted_decoded_ts)
+    print("----------------------------------")
+    print("entry: " + str(x_test_center[i,2400]) )
+    l1, = plt.plot(range(2420), x_test_center[i,:], label = 'Truth')
+    l3, = plt.plot(range(2420), decoded_ts[i,:], 'y', label = 'Decoded')
+    l2, = plt.plot(range(2400,2420), predicted_decoded_ts[0,2400:], 'r', label = 'Pred')
+    plt.legend(handles = [l1, l2], loc = 'lower left')
+    plt.show()
 
 
 '''
-
 use_cache = False
 
 centered_data = []
@@ -163,7 +197,7 @@ train_losses = []
 val_losses = []
 
 
-if( not os.path.isfile( os.path.join(savePath, model_name+'.meta') ) ):
+
     print("building model..")
     rnn_model = build_graph(input_seq_len = input_seq_len, output_seq_len = output_seq_len, hidden_dim=hidden_dim, feed_previous=False)
     saver = tf.train.Saver()
