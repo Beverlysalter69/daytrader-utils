@@ -1,7 +1,7 @@
 import numpy as np
 import os
 import dtdata as dt
-from sklearn.model_selection import StratifiedShuffleSplit
+from sklearn.model_selection import train_test_split
 from sklearn.decomposition import PCA
 from keras.models import Sequential
 from keras.layers import Dense, Activation, Dropout
@@ -19,23 +19,21 @@ crop_future = -20
 
 input_size = 128
 
-subset = -1 # -1 to use the entire data set
+subset = 250 # -1 to use the entire data set
 
-savePath = r'/home/suroot/Documents/train/daytrader/'
-path =r'/home/suroot/Documents/train/daytrader/ema-crossover' # path to data
-(data, labels_classed) = dt.cacheLoadData(path, epochs, num_classes, input_size)
-ss = StratifiedShuffleSplit(test_size=0.1)
-for train_index, test_index in ss.split(data, labels_classed):
-    print("TRAIN:", train_index, "TEST:", test_index)
-    x_train, x_test = data[train_index], data[test_index]
-    y_train, y_test = labels_classed[train_index], labels_classed[test_index]
-#x_train, x_test, y_train, y_test = ss.split(data, labels_classed)
+#savePath = r'/home/suroot/Documents/train/daytrader/'
+#path =r'/home/suroot/Documents/train/daytrader/ema-crossover' # path to data
+savePath = r'/home/suroot/Documents/train/raw/'
+path =r'/home/suroot/Documents/train/raw/22222c82-59d1-4c56-a661-3e8afa594e9a' # path to data
+(data, labels_classed, _) = dt.cacheLoadData(path, crop_future, num_classes, input_size)
+
+x_train, x_test, y_train, y_test = train_test_split(data, labels_classed, test_size=0.05)
 
 model = Sequential()
-model.add(Dense(128, activation='relu', input_dim=data.shape[1], kernel_regularizer=regularizers.l2(0.01)))
-model.add(Dropout(0.2))
-model.add(Dense(64, activation='relu', kernel_regularizer=regularizers.l2(0.01)))
-model.add(Dropout(0.4))
+model.add(Dense(256, activation='relu', input_dim=data.shape[1], kernel_regularizer=regularizers.l2(0.01)))
+#model.add(Dropout(0.2))
+model.add(Dense(128, activation='relu', kernel_regularizer=regularizers.l2(0.01)))
+#model.add(Dropout(0.4))
 model.add(Dense(num_classes, activation='softmax'))
 
 model.summary()

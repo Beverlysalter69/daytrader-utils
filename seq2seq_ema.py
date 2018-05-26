@@ -21,12 +21,13 @@ original_seq_len = 2400
 encoding_dim = 120
 hold_out = 350
 batch_size = 128
-epochs = 250
+epochs = 50
 
 savePath = r'/home/suroot/Documents/train/daytrader/'
 
-
-# load auto encoder.. for PAST data.
+###############################################################################################
+# PAST - load auto encoder.. for PAST data.
+###############################################################################################
 autoencoder_past_path = "/home/suroot/Documents/train/daytrader/models/autoencoder-past-"+str(encoding_dim)+".hdf5"
 autoencoder_past = load_model(autoencoder_past_path)
 input_past = Input(shape=(original_seq_len,))
@@ -36,7 +37,9 @@ encoded_past_input = Input(shape=(encoding_dim,))
 decoder_past_layer = autoencoder_past.layers[-1]
 decoder_past = Model(encoded_past_input, decoder_past_layer(encoded_past_input))
 
-# load auto encoder.. for PAST data.
+###############################################################################################
+# FUTURE load auto encoder.. for FUTURE data.
+###############################################################################################
 autoencoder_future_path = "/home/suroot/Documents/train/daytrader/models/autoencoder-future-"+str(encoding_dim)+".hdf5"
 autoencoder_future = load_model(autoencoder_future_path)
 input_future = Input(shape=(original_seq_len,))
@@ -57,16 +60,21 @@ data = scaler.fit_transform(data)
 print(data.shape)
 
 # get and encode PAST data..
-x_train_past = data[0:-hold_out,0:2400]
+x_train_past = data[hold_out:,0:2400]
 print("past: " + str(x_train_past.shape))
 x_train_past_encoded = encoder_past.predict(x_train_past)
 print("past encoded: " + str(x_train_past_encoded.shape))
 
 # get and encode FUTURE data..
-x_train_future = data[0:-hold_out,20:2420]
+x_train_future = data[hold_out:,0:2400]
 print("future: " + str(x_train_future.shape))
 x_train_future_encoded = encoder_future.predict(x_train_future)
 print("future encoded: " + str(x_train_future_encoded.shape))
+
+y_train_future = data[hold_out:,20:2420]
+print("y future: " + str(y_train_future.shape))
+y_train_future_encoded = encoder_future.predict(y_train_future)
+print("y future encoded: " + str(y_train_future_encoded.shape))
 
 seq2seq_model_path = savePath + "seq2seq_ema.hdf5"
 
@@ -93,20 +101,17 @@ if( not os.path.isfile( seq2seq_model_path ) ):
     model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
     model.summary()
     
-    checkpoint = ModelCheckpoint(seq2seq_model_path, monitor='val_acc', verbose=2, save_best_only=True, mode='max')
+    checkpoint = ModelCheckpoint(seq2seq_model_path, monitor='acc', verbose=2, save_best_only=True, mode='max')
 
     # Run training
     model.compile(optimizer='rmsprop', loss='mean_absolute_error', metrics=['mae', 'acc'])
     x_train_past_encoded_lstm = np.reshape(x_train_past_encoded, (x_train_past_encoded.shape[0], x_train_past_encoded.shape[1], 1) )
     x_train_future_encoded_lstm = np.reshape(x_train_future_encoded, (x_train_future_encoded.shape[0], x_train_future_encoded.shape[1], 1) )
-    x_train_future_encoded2 = x_train_future_encoded[:,1:]
-    x_train_future_encoded2 = np.insert(x_train_future_encoded2, 0, 0, axis=1)
-    x_train_future_encoded2_lstm = np.reshape(x_train_future_encoded2, (x_train_future_encoded2.shape[0], x_train_future_encoded2.shape[1], 1) )
-
+    y_train_future_encoded_lstm = np.reshape(y_train_future_encoded, (y_train_future_encoded.shape[0], y_train_future_encoded.shape[1], 1) )
     print("rarg")
-    print(x_train_future_encoded2_lstm.shape)
+    print(y_train_future_encoded_lstm.shape)
 
-    model.fit([x_train_past_encoded_lstm, x_train_future_encoded_lstm], x_train_future_encoded2_lstm,
+    model.fit([x_train_past_encoded_lstm, x_train_future_encoded_lstm], y_train_future_encoded_lstm,
             batch_size=batch_size,
             epochs=epochs,
             callbacks=[checkpoint],          
@@ -122,27 +127,34 @@ x_test_past_encoded = encoder_past.predict(x_test_past)
 print("test past encoded: " + str(x_test_past_encoded.shape))
 
 # get TEST and encode FUTURE data..
-x_test_future = data[0:hold_out,20:2420]
+x_test_future = data[0:hold_out,0:2400]
 print("test future: " + str(x_test_future.shape))
 x_test_future_encoded = encoder_future.predict(x_test_future)
 print("test future encoded: " + str(x_test_future_encoded.shape))
 
+y_test_future = data[0:hold_out,20:2420]
+print("y test future: " + str(y_test_future.shape))
+y_test_future_encoded = encoder_future.predict(y_test_future)
+print("y test future encoded: " + str(y_test_future_encoded.shape))
+
+
 for i in range(len(x_test_past_encoded)):
-    test_seq_input = x_test_past_encoded[i]
-    prediction = model.predict(test_seq_input)
+    x_test_past_encoded_lstm = np.reshape(x_test_past_encoded[i], (1, x_test_past_encoded.shape[1], 1) )
+    x_test_future_encoded_lstm = np.reshape(x_test_future_encoded[i], (1, x_test_future_encoded.shape[1], 1) )
+    
+    prediction = model.predict([x_test_past_encoded_lstm, x_test_future_encoded_lstm])
+    print(prediction.shape)
     predictions.append(prediction)
 
 for i in range(len(x_test_past_encoded)):
     predicted_ts = predictions[i]
     print(predicted_ts.shape)
-    predicted_decoded_ts = decoder_future.predict( predicted_ts )
+    predicted_decoded_ts = decoder_future.predict( np.reshape(predicted_ts, (1, 120) ) )
     print(predicted_decoded_ts.shape)
-    predicted_decoded_ts = scaler.inverse_transform(predicted_decoded_ts)
+    #predicted_decoded_ts = scaler.inverse_transform(predicted_decoded_ts)
     print("----------------------------------")
-    print("entry: " + str(x_test_center[i,2400]) )
-    l1, = plt.plot(range(2420), x_test_center[i,:], label = 'Truth')
-    l3, = plt.plot(range(2420), decoded_ts[i,:], 'y', label = 'Decoded')
-    l2, = plt.plot(range(2400,2420), predicted_decoded_ts[0,2400:], 'r', label = 'Pred')
+    l1, = plt.plot(range(2420), data[i,:], label = 'Truth')
+    l2, = plt.plot(range(20,2420), predicted_decoded_ts[0], 'r', label = 'Pred')
     plt.legend(handles = [l1, l2], loc = 'lower left')
     plt.show()
 

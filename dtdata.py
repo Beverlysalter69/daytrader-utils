@@ -22,14 +22,16 @@ def loadData(path, subset = -1):
     # NOTE: set np.random.seed for reproducability
     shuffleFiles = shuffle(sorted(allFiles))
     for file in shuffleFiles:
-        print(file)
+        print('.', end='')
         with open(file, 'r') as f:
             data.append( [float(x[1]) for x in list(csv.reader(f))] )   
+            if( len(data[-1]) != 2420 ):
+                print("FUCT FILE: " + str(file))
     return np.array(data)
 
 def centerAroundEntry(data, crop_future):
     # extract the price at 20 min after entry
-    labels = np.copy(data[:,-1])
+    labels = data[:,-1]
     # remove the last 20 min of history from our data..
     if crop_future < 0:
         data = data[:,0:crop_future]
@@ -66,8 +68,6 @@ def toClasses(labels, num_classes):
     print(one_hot_targets)
     return one_hot_targets
 
-
-
     
 def printLabelDistribution(x):
     unq_rows, count = np.unique(x, axis=0, return_counts=1)
@@ -84,10 +84,10 @@ def cacheLoadData(path, crop_future, num_classes, input_size, scaler = StandardS
     cache = "/tmp/daytrader_"+str(input_size)+"-"+str(crop_future)+".npy"
     labelsCache = "/tmp/daytrader_labels_"+str(input_size)+".npy"
     if( not os.path.isfile(cache) ):
-        data = loadData(path)
-
+        data = loadData(path)        
+        print(data.shape) 
         (data, labels) = centerAroundEntry(data, crop_future)
-        print(data.shape)
+        print(data.shape)       
         data_scaled = scaler.fit_transform(data)        
 
         labels_classed = toClasses(labels, num_classes)

@@ -10,6 +10,9 @@ from keras.models import load_model
 import matplotlib.pyplot as plt
 from build_model_basic import * 
 
+random_seed = 90210
+np.random.seed(random_seed)
+
 ## Parameters
 learning_rate = 0.01
 lambda_l2_reg = 0.003  
@@ -17,6 +20,7 @@ lambda_l2_reg = 0.003
 encoding_dim = 2420
 
 original_seq_len = 2420
+holdout_size = 350
 
 ## Network Parameters
 # length of input signals
@@ -39,13 +43,14 @@ autoencoder_path = "/home/suroot/Documents/train/daytrader/models/autoencoder-"+
 cache = "/home/suroot/Documents/train/daytrader/autoencoded-"+str(encoding_dim)+".npy"
 savePath = r'/home/suroot/Documents/train/daytrader/'
 path =r'/home/suroot/Documents/train/daytrader/ema-crossover' # path to data
-model_name = "raw_ts_model0"
+model_name = "raw_ts_model2"
 
 use_cache = True
 
 if( not use_cache or not os.path.isfile(cache) ):
     data = dt.loadData(path)
-    (data, labels) = dt.centerAroundEntry(data, 0)
+    for i in range(data.shape[0]):
+        data[i,] = (data[i,]/data[i,-20]) - 1.0
     # scale data .. don't forget to stor the scaler weights as we will need them after.
     data = scaler.fit_transform(data) 
     print(data.shape) 
@@ -54,7 +59,9 @@ if( not use_cache or not os.path.isfile(cache) ):
     # TODO: cache the scaler weights
 
 print("loading cached data")
-data = np.load(cache)
+full_data = np.load(cache)
+holdout = full_data[0:holdout_size,:]
+data = full_data[holdout_size:,:]
 print(data.shape)
 
 def generate_train_samples(x, batch, batch_size = 10, input_seq_len = input_seq_len, output_seq_len = output_seq_len):        
@@ -63,7 +70,7 @@ def generate_train_samples(x, batch, batch_size = 10, input_seq_len = input_seq_
     return np.array(input_seq), np.array(output_seq)
 
 # TRAINING PROCESS
-x_train, x_test, _, _ = train_test_split(data, data[:,-1], test_size=0.1)
+x_train, x_test, _, _ = train_test_split(data, data[:,-1], test_size=0.05)
 
 epochs = 50
 batch_size = 32

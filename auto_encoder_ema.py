@@ -21,10 +21,14 @@ batch_size = 256
 epochs = 3000
 hold_out = 350
 # this is the size of our encoded representations
-encoding_dim = 120 
+encoding_dim = 240 
 
-savePath = r'/home/suroot/Documents/train/daytrader/'
-path =r'/home/suroot/Documents/train/daytrader/ema-crossover' # path to data
+#savePath = r'/home/suroot/Documents/train/daytrader/'
+#path =r'/home/suroot/Documents/train/daytrader/ema-crossover' # path to data
+
+savePath = r'/home/suroot/Documents/train/raw/'
+path =r'/home/suroot/Documents/train/raw/22222c82-59d1-4c56-a661-3e8afa594e9a' # path to data
+
 
 scaler = StandardScaler() 
 
@@ -77,3 +81,4 @@ history_future = autoencoder_future.fit(x_train_future, x_train_future,
                     verbose=2,
                     callbacks=[checkpoint_future],
                     )
+                    
