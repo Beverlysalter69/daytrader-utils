@@ -17,7 +17,7 @@ import re
 CA_SYMBOLS = ["FB", "BABA", "GOOG", "AAPL", "TSLA", "MSFT", "NVDA", "AMZN", "CRM", "GOOGL", "ADBE", "NFLX", "INTC", "BIDU"]
 CA_EXTRA = CA_SYMBOLS + ["ADP", "ADSK", "ATVI", "AVGO", "CSCO", "CTXS", "DELL", "EA", "EXPE", "INFY", "ORCL", "QCOM", "NXPI"]
 
-def loadData(path, subset = -1, symbols = []):        
+def loadData(path, subset = -1, symbols = [], mapping = lambda x: float(x[1]) ):        
     allFiles = glob.glob(os.path.join(path, "data_*.csv"))    
     if(subset > 0):
         allFiles = allFiles[0:subset]
@@ -34,7 +34,8 @@ def loadData(path, subset = -1, symbols = []):
                     continue
         print('.', end='')
         with open(file, 'r') as f:
-            data.append( [float(x[1])*float(x[2]) for x in list(csv.reader(f))] )   
+            #data.append( [float(x[1])*float(x[2]) for x in list(csv.reader(f))] )   
+            data.append( [mapping(x) for x in list(csv.reader(f))] )   
             if( len(data[-1]) != 2420 ):
                 print("FUCT FILE: " + str(file))
     return np.array(data)
@@ -90,11 +91,11 @@ def plotTrainingExample(te):
     plt.plot(range(len(te)),te)
     plt.show()
 
-def cacheLoadData(path, crop_future, num_classes, input_size, scaler = StandardScaler(), symbols = [] ):
+def cacheLoadData(path, crop_future, num_classes, input_size, scaler = StandardScaler(), symbols = [], mapping = lambda x: float(x[1]) ):
     cache = "/tmp/daytrader_"+str(input_size)+"-"+str(crop_future)+".npy"
     labelsCache = "/tmp/daytrader_labels_"+str(input_size)+".npy"
     if( not os.path.isfile(cache) ):
-        data = loadData(path, symbols=symbols)        
+        data = loadData(path, symbols=symbols, mapping=mapping)        
         print(data.shape) 
         (data, labels) = centerAroundEntry(data, crop_future)
         print(data.shape)       
@@ -114,7 +115,7 @@ def cacheLoadData(path, crop_future, num_classes, input_size, scaler = StandardS
     data = np.load(cache)
     labels_classed = np.load(labelsCache)
     printLabelDistribution(labels_classed)
-    return (data, labels_classed, scaler)
+    return (data, labels_classed, scaler)   # TODO return scaler weights 
 
 
 def plotHistory(history):

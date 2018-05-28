@@ -15,7 +15,7 @@ sns.set(color_codes=True)
 # fix random seed for reproducibility
 np.random.seed(90210)
 crop_future = -20
-class_to_view = 3   # class
+class_to_view = 5   # class
 
 num_classes = 5
 
@@ -25,24 +25,29 @@ input_size = 128
 #path =r'/home/suroot/Documents/train/daytrader/ema-crossover' # path to data
 savePath = r'/home/suroot/Documents/train/raw/'
 path =r'/home/suroot/Documents/train/raw/22222c82-59d1-4c56-a661-3e8afa594e9a' # path to data
+original = dt.loadData(path, symbols=dt.CA_EXTRA)
 (data, labels_classed, _) = dt.cacheLoadData(path, crop_future, num_classes, input_size, symbols=dt.CA_EXTRA)
 print(data.shape)
 
 x_train, x_test, y_train, y_test = train_test_split(data, labels_classed, test_size=0.1)
+_, x_original, _, _ = train_test_split(original, labels_classed, test_size=0.1)
 
 print("TEST SIZE: " + str(x_test.shape))
 
 #/home/suroot/Documents/train/raw/mlp[3]-28-0.48.hdf5
 from keras.models import load_model
-model = load_model(savePath+'mlp[5]-154-0.32.hdf5')
+model = load_model(savePath+'mlp[5]-48-0.41.hdf5')
 
 model.summary()
 
 class5Data = []
+chartData = []
 
 for i in range(len(x_test)):
     if( y_test[i, (class_to_view-1) ] == 1 ):
         class5Data.append(x_test[i,:])
+        #chartData.append(x_original[i,:])
+        chartData.append(x_test[i,:])
 
 
 class5 = np.array(class5Data)  
@@ -54,3 +59,9 @@ print(onehot_ind)
 plt.hist(onehot_ind, bins='auto')  # arguments are passed to np.histogram
 plt.title("Class "+str(class_to_view)+" Prediction Distribution")
 plt.show()
+
+
+for i in range(len(chartData)):
+    l1, = plt.plot(range(2420), chartData[i], label = 'Truth')
+    plt.legend(handles = [l1], loc = 'lower left')
+    plt.show()
