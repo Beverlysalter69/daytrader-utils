@@ -15,7 +15,7 @@ from build_model_basic import *
 random_seed = 90210
 num_classes = 5
 np.random.seed(random_seed)
-latent_dim = 256  # Latent dimensionality of the encoding space.
+latent_dim = 120  # Latent dimensionality of the encoding space.
 
 original_seq_len = 2400
 encoding_dim = 120
@@ -91,8 +91,12 @@ if( not os.path.isfile( seq2seq_model_path ) ):
     # We set up our decoder to return full output sequences,
     # and to return internal states as well. We don't use the
     # return states in the training model, but we will use them in inference.
-    decoder_lstm = LSTM(latent_dim, return_sequences=True, return_state=True)
+    decoder_lstm = LSTM(encoding_dim, return_sequences=True, return_state=True)
     decoder_outputs, _, _ = decoder_lstm(decoder_inputs, initial_state=encoder_states)
+    #decoder_lstm2 = LSTM(encoding_dim, return_sequences=True, return_state=True)
+    #decoder_outputs, _, _ = decoder_lstm(decoder_outputs1)
+    decoder_dense = Dense(encoding_dim, activation='relu')
+    decoder_outputs = decoder_dense(decoder_outputs)
     decoder_dense = Dense(1, activation='linear')
     decoder_outputs = decoder_dense(decoder_outputs)
 
@@ -137,13 +141,12 @@ print("y test future: " + str(y_test_future.shape))
 y_test_future_encoded = encoder_future.predict(y_test_future)
 print("y test future encoded: " + str(y_test_future_encoded.shape))
 
-
+print("predicting .....")
 for i in range(len(x_test_past_encoded)):
     x_test_past_encoded_lstm = np.reshape(x_test_past_encoded[i], (1, x_test_past_encoded.shape[1], 1) )
     x_test_future_encoded_lstm = np.reshape(x_test_future_encoded[i], (1, x_test_future_encoded.shape[1], 1) )
     
     prediction = model.predict([x_test_past_encoded_lstm, x_test_future_encoded_lstm])
-    print(prediction.shape)
     predictions.append(prediction)
 
 for i in range(len(x_test_past_encoded)):
@@ -153,8 +156,10 @@ for i in range(len(x_test_past_encoded)):
     print(predicted_decoded_ts.shape)
     #predicted_decoded_ts = scaler.inverse_transform(predicted_decoded_ts)
     print("----------------------------------")
-    l1, = plt.plot(range(2420), data[i,:], label = 'Truth')
-    l2, = plt.plot(range(20,2420), predicted_decoded_ts[0], 'r', label = 'Pred')
+    #l1, = plt.plot(range(2420), data[i,:], label = 'Truth')
+    #l2, = plt.plot(range(20,2420), predicted_decoded_ts[0], 'r', label = 'Pred')
+    l1, = plt.plot(range(40), data[i,2380:], label = 'Truth')
+    l2, = plt.plot(range(40), predicted_decoded_ts[0, 2360:], 'r', label = 'Pred')
     plt.legend(handles = [l1, l2], loc = 'lower left')
     plt.show()
 
