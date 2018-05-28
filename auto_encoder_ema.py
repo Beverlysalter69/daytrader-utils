@@ -18,10 +18,10 @@ random_seed = 90210
 np.random.seed(random_seed)
 
 batch_size = 256
-epochs = 3000
+epochs = 500
 hold_out = 350
 # this is the size of our encoded representations
-encoding_dim = 240 
+encoding_dim = 480 
 
 #savePath = r'/home/suroot/Documents/train/daytrader/'
 #path =r'/home/suroot/Documents/train/daytrader/ema-crossover' # path to data
@@ -32,7 +32,7 @@ path =r'/home/suroot/Documents/train/raw/22222c82-59d1-4c56-a661-3e8afa594e9a' #
 
 scaler = StandardScaler() 
 
-data = dt.loadData(path)
+data = dt.loadData(path, symbols=dt.CA_EXTRA)
 for i in range(data.shape[0]):
     data[i,] = (data[i,]/data[i,-20]) - 1.0
 data = scaler.fit_transform(data) 

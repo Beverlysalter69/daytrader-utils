@@ -20,18 +20,20 @@ np.random.seed(random_seed)
 
 original_seq_len = 2400
 batch_size = 256
-epochs = 3000
+epochs = 50000
 hold_out = 350
 # this is the size of our encoded representations
-encoding_dim = 240 
+encoding_dim = 480 
 
-savePath = r'/home/suroot/Documents/train/daytrader/'
-path =r'/home/suroot/Documents/train/daytrader/ema-crossover' # path to data
+#savePath = r'/home/suroot/Documents/train/daytrader/'
+#path =r'/home/suroot/Documents/train/daytrader/ema-crossover' # path to data
+savePath = r'/home/suroot/Documents/train/raw/'
+path =r'/home/suroot/Documents/train/raw/22222c82-59d1-4c56-a661-3e8afa594e9a' # path to data
 
 ###############################################################################################
 # PAST - load auto encoder.. for PAST data.
 ###############################################################################################
-autoencoder_past_path = "/home/suroot/Documents/train/daytrader/models/autoencoder-past-"+str(encoding_dim)+".hdf5"
+autoencoder_past_path = savePath+"models/autoencoder-past-"+str(encoding_dim)+".hdf5"
 autoencoder_past = load_model(autoencoder_past_path)
 input_past = Input(shape=(original_seq_len,))
 encoder_past_layer = autoencoder_past.layers[-2]
@@ -43,7 +45,7 @@ decoder_past = Model(encoded_past_input, decoder_past_layer(encoded_past_input))
 ###############################################################################################
 # FUTURE load auto encoder.. for FUTURE data.
 ###############################################################################################
-autoencoder_future_path = "/home/suroot/Documents/train/daytrader/models/autoencoder-future-"+str(encoding_dim)+".hdf5"
+autoencoder_future_path = savePath+"models/autoencoder-future-"+str(encoding_dim)+".hdf5"
 autoencoder_future = load_model(autoencoder_future_path)
 input_future = Input(shape=(original_seq_len,))
 encoder_future_layer = autoencoder_future.layers[-2]
@@ -54,7 +56,7 @@ decoder_future = Model(encoded_future_input, decoder_future_layer(encoded_future
 
 scaler = StandardScaler() 
 
-data = dt.loadData(path)
+data = dt.loadData(path, symbols=dt.CA_EXTRA)
 for i in range(data.shape[0]):
     data[i,] = (data[i,]/data[i,-20]) - 1.0
 data = scaler.fit_transform(data) 
@@ -80,7 +82,8 @@ modelPath_mapper= savePath+"/models/autoencoder-mapper-"+str(encoding_dim)+".hdf
 if( not os.path.isfile( modelPath_mapper ) ):
     input_mapper = Input(shape=(encoding_dim,))
     encoded_mapper = Dense(2048, activation='relu')(input_mapper)
-    decoded_mapper = Dense(encoding_dim, activation='linear')(encoded_mapper)
+    encoded_mapper2 = Dense(2048, activation='relu')(input_mapper)
+    decoded_mapper = Dense(encoding_dim, activation='linear')(encoded_mapper2)
     autoencoder_mapper = Model(input_mapper, decoded_mapper)
     autoencoder_mapper.compile(optimizer='adadelta', loss='mean_squared_error', metrics=['accuracy'])
 
@@ -119,7 +122,7 @@ for i in range(len(y_test)):
     y = y_test[i]
     print(y.shape)
     print("----------------------------------")
-    l1, = plt.plot(range(2420), data[i,:], label = 'Truth')
-    l2, = plt.plot(range(20, 2420), y, 'r', label = 'Pred')
+    l1, = plt.plot(range(2380, 2420), data[i,2380:], label = 'Truth')
+    l2, = plt.plot(range(2380, 2420), y[2360:], 'r', label = 'Pred')
     plt.legend(handles = [l1, l2], loc = 'lower left')
     plt.show()

@@ -12,19 +12,29 @@ import csv
 import json
 import math
 import sys
+import re
 
+CA_SYMBOLS = ["FB", "BABA", "GOOG", "AAPL", "TSLA", "MSFT", "NVDA", "AMZN", "CRM", "GOOGL", "ADBE", "NFLX", "INTC", "BIDU"]
+CA_EXTRA = CA_SYMBOLS + ["ADP", "ADSK", "ATVI", "AVGO", "CSCO", "CTXS", "DELL", "EA", "EXPE", "INFY", "ORCL", "QCOM", "NXPI"]
 
-def loadData(path, subset = -1):        
-    allFiles = glob.glob(os.path.join(path, "data_*.csv"))
+def loadData(path, subset = -1, symbols = []):        
+    allFiles = glob.glob(os.path.join(path, "data_*.csv"))    
     if(subset > 0):
         allFiles = allFiles[0:subset]
     data = []
     # NOTE: set np.random.seed for reproducability
     shuffleFiles = shuffle(sorted(allFiles))
+    symboleSet = set(symbols)
     for file in shuffleFiles:
+        if( len(symbols) > 0):
+            m = re.search('data_[0-9]+_(.+?).csv', file)
+            if m:
+                found = m.group(1)
+                if(found not in symboleSet ):
+                    continue
         print('.', end='')
         with open(file, 'r') as f:
-            data.append( [float(x[1]) for x in list(csv.reader(f))] )   
+            data.append( [float(x[1])*float(x[2]) for x in list(csv.reader(f))] )   
             if( len(data[-1]) != 2420 ):
                 print("FUCT FILE: " + str(file))
     return np.array(data)
@@ -80,18 +90,17 @@ def plotTrainingExample(te):
     plt.plot(range(len(te)),te)
     plt.show()
 
-def cacheLoadData(path, crop_future, num_classes, input_size, scaler = StandardScaler() ):
+def cacheLoadData(path, crop_future, num_classes, input_size, scaler = StandardScaler(), symbols = [] ):
     cache = "/tmp/daytrader_"+str(input_size)+"-"+str(crop_future)+".npy"
     labelsCache = "/tmp/daytrader_labels_"+str(input_size)+".npy"
     if( not os.path.isfile(cache) ):
-        data = loadData(path)        
+        data = loadData(path, symbols=symbols)        
         print(data.shape) 
         (data, labels) = centerAroundEntry(data, crop_future)
         print(data.shape)       
         data_scaled = scaler.fit_transform(data)        
 
         labels_classed = toClasses(labels, num_classes)
-
         printLabelDistribution(labels_classed)
 
         if(input_size > 0):
@@ -104,6 +113,7 @@ def cacheLoadData(path, crop_future, num_classes, input_size, scaler = StandardS
             np.save(labelsCache, labels_classed)
     data = np.load(cache)
     labels_classed = np.load(labelsCache)
+    printLabelDistribution(labels_classed)
     return (data, labels_classed, scaler)
 
 
