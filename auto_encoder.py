@@ -17,8 +17,8 @@ import matplotlib.pyplot as plt
 random_seed = 90210
 np.random.seed(random_seed)
 
-batch_size = 256
-epochs = 2500
+batch_size = 64
+epochs = 250
 hold_out = 350
 
 savePath = r'/home/suroot/Documents/train/daytrader/'
@@ -34,7 +34,7 @@ print(data.shape)
 
 # TRAINING PROCESS (Hold out training on TEST set)
 #x_train, x_test, _, _ = train_test_split(data, np.zeros( (data.shape[0], 1) ), test_size=0.1, random_state=random_seed)
-x_train = data[0:-hold_out, :]
+x_train = data[hold_out:, :]
 print("training on: " + str(x_train.shape))
 
 # this is the size of our encoded representations
@@ -42,20 +42,7 @@ encoding_dim = 121
 
 # this is our input placeholder
 input = Input(shape=(x_train.shape[1],))
-# "encoded" is the encoded representation of the input
-#encoded = Dense(2048, activation='relu')(input)
-#encoded = Dense(1024, activation='relu')(encoded)
-#encoded = Dense(512, activation='relu')(input)
 encoded = Dense(encoding_dim, activation='relu')(input)
-#encoded = Dense(encoding_dim, activation='relu', activity_regularizer=l1(1e-5))(input)
-#TODO: add a regularizer term here: https://towardsdatascience.com/applied-deep-learning-part-3-autoencoders-1c083af4d798
-
-
-
-# "decoded" is the lossy reconstruction of the input
-#decoded = Dense(128, activation='relu')(encoded)
-#decoded = Dense(512, activation='relu')(encoded)
-#decoded = Dense(1024, activation='relu')(decoded)
 decoded = Dense(x_train.shape[1], activation='linear')(encoded)
 
 # this model maps an input to its reconstruction
@@ -77,22 +64,14 @@ history = autoencoder.fit(x_train, x_train,
                     epochs=epochs,
                     verbose=2,
                     callbacks=[checkpoint],
-                    #validation_data=(x_test, y_test)
                     )
 
-
-
-
-#np.save(savePath + "encoder-"+str(encoding_dim)+".npy", encoded_ts)
-
-x_test = data[-hold_out:, :]
-# encode and decode some digits
-# note that we take them from the *test* set
+x_test = data[0:hold_out, :]
 encoded_ts = encoder.predict(x_test)
 decoded_ts = decoder.predict(encoded_ts)
 
 for i in range(x_test.shape[0]):
-    l1 = plt.plot(range(len(x_test[i,:])), x_test[i,:], 'g', label = 'truth')
-    l2 = plt.plot(range(len(decoded_ts[i,:])), decoded_ts[i,:], 'r', label = 'encoded')
+    l1, = plt.plot(range(len(x_test[i,:])), x_test[i,:], 'g', label = 'truth')
+    l2, = plt.plot(range(len(decoded_ts[i,:])), decoded_ts[i,:], 'r', label = 'encoded')
     plt.legend(handles = [l1, l2], loc = 'lower left')
     plt.show()

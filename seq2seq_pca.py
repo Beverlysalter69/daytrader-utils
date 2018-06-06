@@ -19,8 +19,6 @@ learning_rate = 0.01
 lambda_l2_reg = 0.003  
 
 
-
-original_seq_len = 2420
 holdout_size = 350
 
 ## Network Parameters
@@ -33,7 +31,6 @@ hidden_dim = 256
 # num of input signals
 input_dim = 1
 crop_future = 0
-num_classes = 5
 encoding_dim = input_seq_len + output_seq_len
 # num of output signals
 output_dim = 1
@@ -48,14 +45,14 @@ cache = "/home/suroot/Documents/train/daytrader/seq2seq_raw-"+str(encoding_dim)+
 #path =r'/home/suroot/Documents/train/daytrader/ema-crossover' # path to data
 savePath = r'/home/suroot/Documents/train/raw/'
 path =r'/home/suroot/Documents/train/raw/22222c82-59d1-4c56-a661-3e8afa594e9a' # path to data
-model_name = "raw_ts_model2"
+model_name = "pca2_ts_model"
 
-use_cache = True
+use_cache = False
 
 if( not use_cache or not os.path.isfile(cache) ):
     data = dt.loadData(path, symbols=dt.CA_EXTRA)
-    for i in range(data.shape[0]):
-        data[i,] = (data[i,]/data[i,-20]) - 1.0
+    #for i in range(data.shape[0]):
+    #    data[i,] = (data[i,]/data[i,-20]) - 1.0
     # scale data .. don't forget to stor the scaler weights as we will need them after.
     data_scaled = scaler.fit_transform(data) 
     pca = PCA(n_components=encoding_dim, svd_solver='full')
@@ -136,9 +133,8 @@ for i in range(len(x_test)):
     print(predicted_ts.shape)
     #predicted_decoded_ts = scaler.inverse_transform(decoded_ts)
     #decoded_ts = scaler.inverse_transform(decoded_ts)
-    l1, = plt.plot(range(input_seq_len), x_test[i,0:input_seq_len], label = 'Training truth')
-    l2, = plt.plot(range(input_seq_len, input_seq_len+output_seq_len), x_test[i,input_seq_len:], 'y', label = 'Test truth')
-    l3, = plt.plot(range(input_seq_len, input_seq_len+output_seq_len), predicted_ts[0,input_seq_len:], 'r', label = 'Test predictions')
-    plt.legend(handles = [l1, l2, l3], loc = 'lower left')
+    l1, = plt.plot(range(2), x_test[i,119:121], label = 'Training truth')
+    l2, = plt.plot(range(2), predicted_ts[0,119:121], 'r', label = 'Test predictions')
+    plt.legend(handles = [l1, l2], loc = 'lower left')
     plt.show()
 

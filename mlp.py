@@ -32,6 +32,7 @@ model = Sequential()
 model.add(Dense(128, activation='relu', input_dim=data.shape[1], kernel_regularizer=regularizers.l2(0.01)))
 #model.add(Dropout(0.2))
 model.add(Dense(64, activation='relu', kernel_regularizer=regularizers.l2(0.01)))
+model.add(Dense(64, activation='relu', kernel_regularizer=regularizers.l2(0.01)))
 #model.add(Dropout(0.4))
 model.add(Dense(num_classes, activation='softmax'))
 

@@ -18,8 +18,8 @@ random_seed = 90210
 np.random.seed(random_seed)
 
 batch_size = 256
-epochs = 500
-hold_out = 350
+epochs = 5000
+hold_out = 1250
 # this is the size of our encoded representations
 encoding_dim = 480 
 
@@ -41,7 +41,7 @@ print(data.shape)
 #################################################################################################
 ## TRAIN PAST ENCODER
 #################################################################################################
-x_train_past = data[0:-hold_out,0:2400]
+x_train_past = data[hold_out:,0:2400]
 print("training past on: " + str(x_train_past.shape))
 
 input_past = Input(shape=(x_train_past.shape[1],))
@@ -63,7 +63,7 @@ history_past = autoencoder_past.fit(x_train_past, x_train_past,
 #################################################################################################
 ## TRAIN FUTURE ENCODER
 #################################################################################################
-x_train_future = data[0:-hold_out,20:2420]
+x_train_future = data[hold_out:,20:2420]
 print("training on: " + str(x_train_future.shape))
 
 input_future = Input(shape=(x_train_future.shape[1],))

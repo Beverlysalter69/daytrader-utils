@@ -21,7 +21,7 @@ np.random.seed(random_seed)
 original_seq_len = 2400
 batch_size = 256
 epochs = 50000
-hold_out = 350
+hold_out = 1250
 # this is the size of our encoded representations
 encoding_dim = 480 
 
@@ -116,13 +116,28 @@ x_test_future_predicted = autoencoder_mapper.predict(x_test_past_encoded)
 # now we can map this back to future vals with the future decoder
 y_test = decoder_future.predict(x_test_future_predicted)
 
-# lets view some results...
+# figure out the accuracy 
+num_classes = 5
+buckets = dt.labelBuckets(data[0:hold_out,-1], num_classes)
+print("buckets: " + str(buckets))
+targets = np.digitize(data[0:hold_out,-1], buckets) - 1
+actual_labels = np.eye(num_classes)[targets]
 
+pred_targets = np.digitize(y_test[0:hold_out,-1], buckets) - 1
+pred_labels = np.eye(num_classes)[pred_targets]
+
+correct = 0
+for i in range(len(pred_labels)):
+    if(  np.array_equal(pred_labels[i], actual_labels[i]) ):
+        correct += 1
+print("ACC: " + str(correct/len(pred_labels)))
+
+# lets view some results...
 for i in range(len(y_test)):
     y = y_test[i]
     print(y.shape)
     print("----------------------------------")
-    l1, = plt.plot(range(2380, 2420), data[i,2380:], label = 'Truth')
-    l2, = plt.plot(range(2380, 2420), y[2360:], 'r', label = 'Pred')
+    l1, = plt.plot(range(2340, 2420), data[i,2340:], label = 'Truth')
+    l2, = plt.plot(range(2340, 2420), y[2320:], 'r', label = 'Pred')
     plt.legend(handles = [l1, l2], loc = 'lower left')
     plt.show()
